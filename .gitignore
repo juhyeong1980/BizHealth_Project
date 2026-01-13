@@ -18,5 +18,6 @@ amplify-gradle-config.json
 amplifytools.xcconfig
 .secret-*
 **.sample
-#amplify-do-not-edit-endbackend/healthcare.db
+#amplify-do-not-edit-end
+backend/healthcare.db
 *.csv

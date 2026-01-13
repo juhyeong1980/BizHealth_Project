@@ -64,7 +64,6 @@ function updateTitle(viewName) {
         'periodStatus': '<i class="fas fa-calendar-check" style="color:#2ecc71;"></i> 기간별 상세 현황',
         'retentionView': '<i class="fas fa-sync-alt" style="color:#e67e22;"></i> 재방문 및 정착도 분석',
         'detail': '<i class="fas fa-search" style="color:#27ae60;"></i> 사업장 정밀 분석',
-        'surveyAnalysis': '<i class="fas fa-poll-h" style="color:#3498db;"></i> 설문조사 분석',
         'orderStatus': '<i class="fas fa-balance-scale" style="color:#9b59b6;"></i> 수주/이탈 분석',
         'config': '<i class="fas fa-cog" style="color:#7f8c8d;"></i> 설정',
         'bp_performance': '📊 2025 성과보고',
@@ -90,9 +89,6 @@ function initTabScripts(viewName) {
     else if (viewName === 'retentionView') {
         if (typeof renderYearFilter === 'function') renderYearFilter();
         if (RAW_ROWS.length > 0 && typeof RetentionModule !== 'undefined') RetentionModule.analyze();
-    }
-    else if (viewName === 'surveyAnalysis') {
-        if (typeof SurveyAnalysisModule !== 'undefined') SurveyAnalysisModule.init();
     }
     else if (viewName === 'detail') {
         if (typeof DetailModule !== 'undefined') DetailModule.init();
