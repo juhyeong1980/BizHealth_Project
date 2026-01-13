@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>진헬스 데이터 관리자</title>
+    <style>
+        body { font-family: 'Malgun Gothic', sans-serif; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h2 { border-bottom: 2px solid #007bff; padding-bottom: 10px; color: #333; }
+        .input-group { display: flex; gap: 10px; margin-bottom: 20px; background: #eee; padding: 15px; border-radius: 5px; }
+        input { padding: 10px; border: 1px solid #ddd; border-radius: 4px; flex: 1; }
+        button { padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        button:hover { background: #0056b3; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background: #f8f9fa; }
+        tr:hover { background: #f1f1f1; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🏢 사업장명 표준화 설정</h2>
+    <p>원본 데이터의 사업장명을 통계용 표준 이름으로 변경합니다.</p>
+
+    <div class="input-group">
+        <input type="text" id="originName" placeholder="원본 이름 (예: 삼성전자DS)">
+        <span style="align-self: center;">➡️</span>
+        <input type="text" id="standardName" placeholder="표준 이름 (예: 삼성전자)">
+        <button onclick="addRule()">규칙 저장</button>
+    </div>
+
+    <h3>현재 적용된 규칙</h3>
+    <table id="ruleTable">
+        <thead>
+            <tr>
+                <th>원본 이름 (CSV)</th>
+                <th>변환될 이름 (통계용)</th>
+            </tr>
+        </thead>
+        <tbody>
+            </tbody>
+    </table>
+</div>
+
+<script>
+    const API_URL = "http://127.0.0.1:8000"; // 백엔드 주소
+
+    // 1. 규칙 목록 불러오기
+    async function loadRules() {
+        const res = await fetch(`${API_URL}/admin/company-map`);
+        const data = await res.json();
+        
+        const tbody = document.querySelector("#ruleTable tbody");
+        tbody.innerHTML = "";
+        
+        data.forEach(item => {
+            const tr = `<tr>
+                <td>${item.original_name}</td>
+                <td style="color:blue; font-weight:bold;">${item.standard_name}</td>
+            </tr>`;
+            tbody.innerHTML += tr;
+        });
+    }
+
+    // 2. 규칙 추가하기
+    async function addRule() {
+        const origin = document.getElementById("originName").value;
+        const standard = document.getElementById("standardName").value;
+
+        if(!origin || !standard) {
+            alert("두 이름을 모두 입력해주세요.");
+            return;
+        }
+
+        const res = await fetch(`${API_URL}/admin/company-map`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ original_name: origin, standard_name: standard })
+        });
+
+        if(res.ok) {
+            alert("저장되었습니다!");
+            document.getElementById("originName").value = "";
+            loadRules(); // 목록 갱신
+        } else {
+            alert("저장 실패");
+        }
+    }
+
+    // 시작할 때 목록 로딩
+    loadRules();
+</script>
+
+</body>
+</html>

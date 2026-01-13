@@ -1,0 +1,303 @@
+<div class="period-status-container"
+    style="padding: 0; height: 100%; overflow: hidden; display: flex; flex-direction: column; background-color: #f4f6f9;">
+    <!-- Top Bar: Title & Controls -->
+    <div
+        style="padding: 15px 30px; background: white; border-bottom: 1px solid #ddd; display: flex; align-items: center; justify-content: space-between; height: 70px;">
+        <div style="flex:1;"></div>
+
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <!-- Twin-Period Comparisons -->
+            <div style="display: flex; align-items: center; gap: 20px;">
+                <!-- Period A (Left/Target) -->
+                <div style="display:flex; flex-direction:column; align-items:flex-end;">
+                    <span style="font-size:11px; color:#2c3e50; font-weight:bold; margin-bottom:3px;">분석 기간 (좌측)</span>
+                    <div
+                        style="display:flex; align-items:center; background:#f8f9fa; padding:5px 15px; border-radius:20px; border:1px solid #ddd;">
+                        <input type="date" id="ps-startDate" class="hd-input"
+                            style="border:none; background:transparent; font-size:13px;">
+                        <span style="margin:0 10px; color:#aaa;">~</span>
+                        <input type="date" id="ps-endDate" class="hd-input"
+                            style="border:none; background:transparent; font-size:13px;">
+                    </div>
+                </div>
+
+                <div style="color:#ddd; font-size:20px;">vs</div>
+
+                <!-- Period B (Right/Reference) -->
+                <div style="display:flex; flex-direction:column; align-items:flex-start;">
+                    <span style="font-size:11px; color:#7f8c8d; font-weight:bold; margin-bottom:3px;">비교 기간 (우측)</span>
+                    <div
+                        style="display:flex; align-items:center; background:white; padding:5px 15px; border-radius:20px; border:1px solid #ddd;">
+                        <input type="date" id="ps-comp-startDate" class="hd-input"
+                            style="border:none; background:transparent; font-size:13px; color:#7f8c8d;">
+                        <span style="margin:0 10px; color:#aaa;">~</span>
+                        <input type="date" id="ps-comp-endDate" class="hd-input"
+                            style="border:none; background:transparent; font-size:13px; color:#7f8c8d;">
+                    </div>
+                </div>
+            </div>
+
+            <button onclick="PeriodStatusModule.analyze()" class="btn-refresh"
+                style="background:var(--accent); border-radius:20px; padding: 6px 20px;">
+                <i class="fas fa-search"></i> 조회
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Content Area (Scrollable) -->
+    <!-- Main Content Area (Split Screen) -->
+    <div id="ps-content-container" style="flex: 1; overflow-y: auto; padding: 20px; display: flex; gap: 20px;">
+
+        <!-- Left Panel (Period A) -->
+        <div class="ps-panel glass-panel" style="flex:1; display:flex; flex-direction:column; padding:20px;">
+            <div class="panel-header"
+                style="border-bottom:2px solid var(--accent); padding-bottom:10px; margin-bottom:20px;">
+                <h3 style="margin:0; color:var(--accent);"><i class="fas fa-chart-line"></i> 분석 기간 (좌측)</h3>
+                <div id="ps-period-label-a" style="font-size:13px; color:#7f8c8d; margin-top:5px;">-</div>
+            </div>
+
+            <!-- Summary Cards A -->
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-bottom:30px;">
+                <div class="mini-card">
+                    <div class="label">총 검진 금액</div>
+                    <div class="value" id="ps-amt-a">-</div>
+                </div>
+                <div class="mini-card">
+                    <div class="label">총 수검 인원</div>
+                    <div class="value" id="ps-count-a">-</div>
+                </div>
+            </div>
+
+            <!-- Category Chart A -->
+            <div style="margin-bottom:30px;">
+                <h4 class="sub-title">유형별 매출 비중</h4>
+                <div style="height:250px; position:relative;">
+                    <canvas id="ps-chart-a"></canvas>
+                </div>
+                <div id="ps-table-cat-a" style="margin-top:15px;"></div>
+            </div>
+
+            <!-- Business Sites List A -->
+            <div style="flex:1; min-height:0; display:flex; flex-direction:column;">
+                <h4 class="sub-title">사업장별 매출 (TOP 50)</h4>
+                <div style="flex:1; overflow-y:auto; border:1px solid #eee; border-radius:8px;">
+                    <table class="bp-table" style="width:100%; border-collapse: collapse;">
+                        <thead style="position:sticky; top:0; background:#f8f9fa;">
+                            <tr>
+                                <th style="padding:10px; text-align:left;">사업장명</th>
+                                <th style="padding:10px; text-align:right;">금액</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ps-biz-tbody-a"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel (Period B) -->
+        <div class="ps-panel glass-panel" style="flex:1; display:flex; flex-direction:column; padding:20px;">
+            <div class="panel-header" style="border-bottom:2px solid #95a5a6; padding-bottom:10px; margin-bottom:20px;">
+                <h3 style="margin:0; color:#95a5a6;"><i class="fas fa-history"></i> 비교 기간 (우측)</h3>
+                <div id="ps-period-label-b" style="font-size:13px; color:#7f8c8d; margin-top:5px;">-</div>
+            </div>
+
+            <!-- Summary Cards B -->
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-bottom:30px;">
+                <div class="mini-card">
+                    <div class="label">총 검진 금액</div>
+                    <div class="value" id="ps-amt-b">-</div>
+                </div>
+                <div class="mini-card">
+                    <div class="label">총 수검 인원</div>
+                    <div class="value" id="ps-count-b">-</div>
+                </div>
+            </div>
+
+            <!-- Category Chart B -->
+            <div style="margin-bottom:30px;">
+                <h4 class="sub-title">유형별 매출 비중</h4>
+                <div style="height:250px; position:relative;">
+                    <canvas id="ps-chart-b"></canvas>
+                </div>
+                <div id="ps-table-cat-b" style="margin-top:15px;"></div>
+            </div>
+
+            <!-- Business Sites List B -->
+            <div style="flex:1; min-height:0; display:flex; flex-direction:column;">
+                <h4 class="sub-title">사업장별 매출 (TOP 50)</h4>
+                <div style="flex:1; overflow-y:auto; border:1px solid #eee; border-radius:8px;">
+                    <table class="bp-table" style="width:100%; border-collapse: collapse;">
+                        <thead style="position:sticky; top:0; background:#f8f9fa;">
+                            <tr>
+                                <th style="padding:10px; text-align:left;">사업장명</th>
+                                <th style="padding:10px; text-align:right;">금액</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ps-biz-tbody-b"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <style>
+        .glass-panel {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(0, 0, 0, 0.02);
+        }
+
+        .mini-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+        }
+
+        .mini-card .label {
+            font-size: 11px;
+            color: #7f8c8d;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .mini-card .value {
+            font-size: 18px;
+            font-weight: 800;
+            color: #2c3e50;
+        }
+
+        .sub-title {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+            color: #2c3e50;
+            font-weight: 700;
+            border-left: 4px solid #ddd;
+            padding-left: 10px;
+        }
+
+        .cat-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 12px;
+        }
+
+        .cat-name {
+            color: #555;
+            font-weight: 600;
+        }
+
+        .cat-val {
+            color: #2c3e50;
+        }
+    </style>
+
+    <style>
+        /* Custom Styles for this view only */
+        .glass-panel {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(0, 0, 0, 0.02);
+        }
+
+        .kpi-card {
+            padding: 25px;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.3s;
+        }
+
+        .kpi-card:hover {
+            transform: translateY(-3px);
+        }
+
+        .kpi-icon {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 30px;
+            color: rgba(0, 0, 0, 0.05);
+        }
+
+        .kpi-label {
+            font-size: 11px;
+            color: #95a5a6;
+            font-weight: 700;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+
+        .kpi-value {
+            font-size: 28px;
+            font-weight: 800;
+            color: #2c3e50;
+        }
+
+        .unit {
+            font-size: 14px;
+            font-weight: normal;
+            color: #7f8c8d;
+            margin-left: 5px;
+        }
+
+        .kpi-trend {
+            font-size: 13px;
+            margin-top: 10px;
+            font-weight: 600;
+        }
+
+        .chart-title {
+            margin: 0 0 15px 0;
+            font-size: 14px;
+            color: #7f8c8d;
+            text-align: center;
+        }
+
+        .nav-btn {
+            background: white;
+            border: 1px solid #ddd;
+            padding: 8px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+            color: #555;
+            transition: 0.2s;
+        }
+
+        .nav-btn:hover {
+            background: #f8f9fa;
+            color: var(--accent);
+            border-color: var(--accent);
+        }
+
+        .nav-dot {
+            width: 10px;
+            height: 10px;
+            background: #ddd;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .nav-dot.active {
+            background: var(--accent);
+            transform: scale(1.3);
+        }
+
+        /* Table Styling Override */
+        .bp-table th {
+            border-bottom: 2px solid #ddd !important;
+            color: #555;
+        }
+
+        .bp-table td {
+            border-bottom: 1px solid #eee;
+            padding: 12px;
+            color: #333;
+        }
+    </style>

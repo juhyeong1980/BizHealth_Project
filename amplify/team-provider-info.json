@@ -1,0 +1,23 @@
+{
+  "dev": {
+    "awscloudformation": {
+      "AuthRoleName": "amplify-bizhealthproject-dev-ef224-authRole",
+      "UnauthRoleArn": "arn:aws:iam::255982107392:role/amplify-bizhealthproject-dev-ef224-unauthRole",
+      "AuthRoleArn": "arn:aws:iam::255982107392:role/amplify-bizhealthproject-dev-ef224-authRole",
+      "Region": "ap-northeast-2",
+      "DeploymentBucketName": "amplify-bizhealthproject-dev-ef224-deployment",
+      "UnauthRoleName": "amplify-bizhealthproject-dev-ef224-unauthRole",
+      "StackName": "amplify-bizhealthproject-dev-ef224",
+      "StackId": "arn:aws:cloudformation:ap-northeast-2:255982107392:stack/amplify-bizhealthproject-dev-ef224/222d56a0-eb90-11f0-874e-06850954da81",
+      "AmplifyAppId": "d315lgkmonj1ce"
+    },
+    "categories": {
+      "hosting": {
+        "amplifyhosting": {
+          "appId": "d315lgkmonj1ce",
+          "type": "manual"
+        }
+      }
+    }
+  }
+}

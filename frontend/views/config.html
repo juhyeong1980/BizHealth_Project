@@ -1,0 +1,190 @@
+<div class="cc-control-panel" style="background:#f0f8ff; border:1px solid #3498db; margin-bottom:20px;">
+    <h3 style="margin-top:0; color:#2c3e50;"><i class="fas fa-cloud"></i> 프로젝트 클라우드 동기화</h3>
+    <p style="font-size:12px; color:#666; margin-bottom:10px;">
+        현재 작업 중인 <b>데이터(CSV)와 설정(병합/제외)</b>을 모두 클라우드에 저장합니다.<br>
+        다른 PC에서 접속 시 '불러오기'만 하면 파일을 다시 업로드할 필요가 없습니다.
+    </p>
+
+    <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; margin-bottom:10px;">
+        <div>
+            <label style="font-size:11px; font-weight:bold;">Access Key ID</label>
+            <input type="password" id="awsAccessKey" class="modal-input" placeholder="AKIA..."
+                onchange="CloudManager.saveCreds()">
+        </div>
+        <div>
+            <label style="font-size:11px; font-weight:bold;">Secret Access Key</label>
+            <input type="password" id="awsSecretKey" class="modal-input" placeholder="Secret Key..."
+                onchange="CloudManager.saveCreds()">
+        </div>
+        <div>
+            <label style="font-size:11px; font-weight:bold;">Bucket Name</label>
+            <input type="text" id="awsBucketName" class="modal-input" placeholder="버킷 이름"
+                onchange="CloudManager.saveCreds()">
+        </div>
+    </div>
+
+    <div style="display:flex; gap:10px; justify-content:flex-end; border-top:1px dashed #ccc; padding-top:10px;">
+        <button class="btn-refresh" style="background:#27ae60;" onclick="CloudManager.uploadProject()">
+            <i class="fas fa-cloud-upload-alt"></i> 전체 상태 저장 (Upload)
+        </button>
+        <button class="btn-refresh" style="background:#e67e22;" onclick="CloudManager.downloadProject()">
+            <i class="fas fa-cloud-download-alt"></i> 전체 상태 복구 (Load)
+        </button>
+    </div>
+    <div id="cloudStatus" style="font-size:12px; color:#666; text-align:right; margin-top:5px; font-weight:bold;"></div>
+</div>
+
+<div class="action-bar">
+    <h2 style="margin:0; font-size:18px;">설정</h2>
+    <div style="display:flex; gap:10px;">
+        <button class="btn-refresh" style="background:#95a5a6;" onclick="downloadConfig()"><i
+                class="fas fa-download"></i> 설정 내보내기 (JSON)</button>
+        <button class="btn-refresh" style="background:#7f8c8d;"
+            onclick="document.getElementById('configFileInput').click()"><i class="fas fa-upload"></i> 설정 불러오기</button>
+        <input type="file" id="configFileInput" accept=".json" style="display:none" onchange="loadConfig(this)">
+        <div style="width:1px; height:20px; background:#ddd; margin:0 10px;"></div>
+        <button class="btn-refresh" style="background:#f39c12;" onclick="runRecommendation()"><i
+                class="fas fa-magic"></i> 병합 추천</button>
+        <button class="btn-commit" id="btnCommit" onclick="saveConfigAndRefresh()"><i class="fas fa-save"></i>
+            저장</button>
+    </div>
+</div>
+<div id="recPanel" class="rec-panel">
+    <div class="rec-header"><strong>💡 추천 병합</strong>
+        <div><button onclick="applyAllRecs()"
+                style="background:#27ae60; color:white; border:none; padding:6px 12px; border-radius:4px; cursor:pointer; font-weight:bold;">⚡
+                모두 병합 적용</button><button onclick="closeRec()"
+                style="border:none; background:none; cursor:pointer; font-size:16px; margin-left:10px;">&times;</button>
+        </div>
+    </div>
+    <div id="recGrid" class="rec-grid"></div>
+</div>
+<h2>⚙️ 설정</h2>
+
+<!-- File Upload Section (Moved from Sidebar) -->
+<div
+    style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 20px;">
+    <h3>📁 데이터 파일 업로드</h3>
+    <p style="color: #666; font-size: 13px; margin-bottom: 10px;">분석할 CSV 파일을 이곳에서 업로드하세요. (다중 선택 가능)</p>
+    <div class="upload-area" style="border: 2px dashed #ccc; padding: 30px; text-align: center; border-radius: 8px;">
+        <label class="btn-upload"
+            style="background: var(--accent); color: white; padding: 10px 20px; border-radius: 4px; cursor: pointer; display: inline-block;">
+            <i class="fas fa-file-csv"></i> 파일 선택 / 드래그
+            <input type="file" id="fileInput" multiple accept=".csv" style="display:none">
+        </label>
+        <div id="fileStatus" style="font-size:13px; color:#555; margin-top:15px; max-height: 100px; overflow-y:auto;">
+        </div>
+    </div>
+</div>
+
+<h3 style="border-bottom:2px solid #ddd; padding-bottom:10px; margin-top:0;">1. 데이터 정리</h3>
+<div class="dd-container" style="margin-bottom: 40px;">
+    <div class="dd-col source">
+        <div class="dd-header">📂 미분류 (<span id="srcCnt">0</span>)</div><input type="text" class="dd-search"
+            placeholder="검색..." onkeyup="filterList('sourceList', this.value)">
+        <div id="sourceList" class="dd-list"></div>
+    </div>
+    <div class="dd-col groups" style="flex:1.2;">
+        <div class="dd-header"><span>🔗 병합 그룹</span><button onclick="openGroupModal()"
+                style="border:none; background:#3498db; color:white; border-radius:3px; padding:2px 8px; cursor:pointer;">+</button>
+        </div>
+        <input type="text" class="dd-search" placeholder="그룹 검색..." onkeyup="filterGroups(this.value)">
+        <div id="newGroupZone"
+            style="border:2px dashed #3498db; padding:15px; border-radius:8px; margin-bottom:15px; text-align:center; color:#3498db; font-weight:bold; background:#eaf6fd;">
+            + 여기에 드래그하여 새 그룹 생성</div>
+        <div id="groupContainer" class="dd-list" style="border:none; background:none; padding:0;"></div>
+    </div>
+    <div class="dd-col exclude">
+        <div class="dd-header">🚫 제외 목록</div>
+        <div style="position:relative; margin-bottom:10px;"><input type="text" id="quickExcludeInput" class="dd-search"
+                placeholder="검색하여 제외..." onkeyup="filterQuickExclude()">
+            <div id="quickExcludeDropdown" class="search-dropdown"></div>
+        </div>
+        <div id="excludeList" class="dd-list"></div>
+    </div>
+</div>
+<hr style="border:0; border-top:2px dashed #ccc; margin: 40px 0;">
+
+<!-- Exam Type Configuration Section -->
+<h3 style="border-bottom:2px solid #ddd; padding-bottom:10px; margin-top:0;">2. 검진 종류 분류 설정 (열 N 기준)</h3>
+<div
+    style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 20px;">
+    <p style="color: #666; font-size: 13px; margin-bottom: 15px;">
+        CSV 파일의 특정 열(기본값: N열)에 포함된 키워드를 기반으로 검진 종류를 분류합니다.<br>
+        키워드는 쉼표(,)로 구분하여 입력하세요.
+    </p>
+
+    <!-- Column Selection -->
+    <div style="margin-bottom: 20px; display:flex; align-items:center; gap:10px;">
+        <label style="font-weight:bold; color:#2c3e50;">판독 대상 열 번호 (0-index):</label>
+        <input type="number" id="cfg-exam-col" value="13" class="modal-input"
+            style="width:80px; margin:0; text-align:center;">
+        <span style="font-size:12px; color:#7f8c8d;">(예: N열 = 13, A열 = 0)</span>
+    </div>
+
+    <!-- Keyword Mapping Grid -->
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+        <div>
+            <label style="font-size:12px; font-weight:bold; display:block; margin-bottom:5px;">종합검진 키워드</label>
+            <input type="text" id="cfg-key-total" placeholder="종합" class="modal-input" style="width:100%;">
+        </div>
+        <div>
+            <label style="font-size:12px; font-weight:bold; display:block; margin-bottom:5px;">기업채용 키워드</label>
+            <input type="text" id="cfg-key-company" placeholder="기업, 채용" class="modal-input" style="width:100%;">
+        </div>
+        <div>
+            <label style="font-size:12px; font-weight:bold; display:block; margin-bottom:5px;">특수검진 키워드</label>
+            <input type="text" id="cfg-key-special" placeholder="특수" class="modal-input" style="width:100%;">
+        </div>
+        <div>
+            <label style="font-size:12px; font-weight:bold; display:block; margin-bottom:5px;">공단검진 (일반) 키워드</label>
+            <input type="text" id="cfg-key-public" placeholder="공단, 일반" class="modal-input" style="width:100%;">
+        </div>
+        <div>
+            <label style="font-size:12px; font-weight:bold; display:block; margin-bottom:5px;">암검진 키워드</label>
+            <input type="text" id="cfg-key-cancer" placeholder="암" class="modal-input" style="width:100%;">
+        </div>
+        <div>
+            <label style="font-size:12px; font-weight:bold; display:block; margin-bottom:5px;">구강검진 키워드</label>
+            <input type="text" id="cfg-key-oral" placeholder="구강" class="modal-input" style="width:100%;">
+        </div>
+        <div style="grid-column: span 2;">
+            <label style="font-size:12px; font-weight:bold; display:block; margin-bottom:5px;">추가영상 (CT/MR) 키워드</label>
+            <input type="text" id="cfg-key-extra" placeholder="영상, 추가, CT, MR" class="modal-input" style="width:100%;">
+        </div>
+    </div>
+</div>
+
+<hr style="border:0; border-top:2px dashed #ccc; margin: 40px 0;">
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+    <h3 style="margin:0; border-bottom:2px solid #ddd; padding-bottom:10px; flex:1;">3. 코드 표준 관리</h3><label><input
+            type="checkbox" id="cc-filter-used" onchange="CodeCheckApp.render()"> 사용된 코드만 보기</label>
+</div>
+<div class="cc-control-panel">
+    <div class="cc-upload-box"><label style="font-weight:bold; margin-bottom:10px;">1. 기준 코드 (code.csv)</label><input
+            type="file" id="cc-file-master" accept=".csv"><span class="cc-status-badge" id="cc-status-master">대기</span>
+    </div>
+    <div class="cc-upload-box"><label style="font-weight:bold; margin-bottom:10px;">2. 사용 내역
+            (2025code.csv)</label><input type="file" id="cc-file-target" accept=".csv"><span class="cc-status-badge"
+            id="cc-status-target">대기</span></div>
+</div>
+<div id="cc-stats-display" style="font-weight:bold; margin-bottom:10px;"></div>
+<div style="overflow-x:auto; max-height: 500px; border:1px solid #eee;">
+    <table id="cc-result-table">
+        <thead>
+            <tr>
+                <th width="50">상태</th>
+                <th class="text-left">코드</th>
+                <th class="text-left">명칭</th>
+                <th class="text-left">검진종류</th>
+                <th>금액</th>
+                <th>비고</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td colspan="6" style="text-align: center; color: #aaa;">데이터 없음</td>
+            </tr>
+        </tbody>
+    </table>
+</div>

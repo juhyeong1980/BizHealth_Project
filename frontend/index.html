@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BizHealth 16.0: Modular</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts/dist/echarts.min.js"></script>
+    <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1260.0.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="style.css?v=1920">
+</head>
+
+<body>
+    <div id="contextMenu" class="context-menu">
+        <div class="context-menu-item" onclick="toggleExcludeItem()">🚫 제외하기</div>
+    </div>
+
+    <!-- 16:9 Presentation Container -->
+    <div id="app-container">
+        <div id="loadingOverlay" class="loading-overlay" style="display:none;">
+            <div class="spinner"></div>
+            <div style="margin-top:15px; font-weight:bold; color:white;">데이터 불러오는 중...</div>
+        </div>
+
+        <div id="groupModal" class="modal-overlay">
+            <div class="modal-content">
+                <div class="modal-title">새 병합 그룹 만들기</div>
+                <input type="text" id="groupNameInput" class="modal-input" placeholder="그룹명 입력"
+                    onkeyup="filterGroupSuggestions()">
+                <div id="groupSuggestions" class="modal-suggestions"></div>
+                <div class="modal-actions">
+                    <button onclick="closeGroupModal()"
+                        style="background:#ccc; color:#333; border:none; padding:8px 15px; border-radius:4px; cursor:pointer;">취소</button>
+                    <button onclick="confirmNewGroup()"
+                        style="background:var(--accent); color:white; border:none; padding:8px 15px; border-radius:4px; cursor:pointer;">생성</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="sidebar">
+            <div class="logo"><i class="fas fa-chart-pie"></i> 건강검진사업부 </div>
+            <div class="menu-item active" onclick="loadTab('dashboard')">📊 연도별 현황</div>
+            <div class="menu-item" onclick="loadTab('periodStatus')">📅 기간별 상세 현황</div>
+            <div class="menu-item" onclick="loadTab('detail')">🔍 사업장 상세분석</div>
+            <div class="menu-item" onclick="loadTab('surveyAnalysis')">📊 설문조사 분석</div>
+            <div class="menu-item" onclick="loadTab('orderStatus')">📉 수주/이탈 분석</div>
+            <div class="menu-item" onclick="loadTab('retentionView')">🔄 재방문 현황(beta)</div>
+            <!-- <div class="menu-item" onclick="loadTab('config')">⚙️ 설정 </div> -->
+            <div class="divider"></div>
+            <div class="menu-item" onclick="loadTab('businessPlan')">📅 2026 사업계획</div>
+        </div>
+
+        <div class="main">
+            <div id="content-area" style="height: 100%; overflow: hidden;"></div>
+        </div>
+    </div>
+
+    <!-- Core & Utils -->
+    <script src="js/env.js?v=1.0"></script>
+    <script src="js/core/state.js?v=17.0"></script>
+    <script src="js/utils/utils.js?v=17.0"></script>
+    <script src="js/utils/scaler.js?v=1.0"></script>
+
+    <!-- Modules -->
+    <script src="js/modules/file-loader.js?v=17.7"></script>
+    <script src="js/modules/dashboard.js?v=17.8"></script>
+    <script src="js/modules/detail.js?v=17.7"></script>
+    <script src="js/modules/retention.js?v=17.7"></script>
+    <script src="js/modules/order-status.js?v=17.7"></script>
+    <script src="js/modules/code-check.js?v=17.7"></script>
+    <script src="js/modules/business-plan.js?v=17.7"></script>
+    <script src="js/modules/period-status.js?v=17.15"></script>
+    <script src="js/modules/survey-analysis.js?v=17.7"></script>
+    <!-- <script src="js/modules/config.js?v=17.7"></script> -->
+    <script src="js/modules/cloud-manager.js?v=17.7"></script>
+
+    <!-- Router & Main -->
+    <script src="js/core/router.js?v=17.7"></script>
+    <script src="js/app.js?v=17.7"></script>
+</body>
+
+</html>

@@ -1,0 +1,77 @@
+<div class="presentation-container">
+    <div class="pres-header">
+        <h2 class="pres-title"><i class="fas fa-sync-alt"></i> 재방문 및 정착도 분석</h2>
+        <div class="pres-controls">
+            <span style="font-size: 13px; color: #666; font-weight: bold;">📅 분석 연도:</span>
+            <div class="local-year-dropdown" style="position:relative; display:inline-block;">
+                <button onclick="toggleLocalYearDropdown()"
+                    style="padding: 6px 15px; border: 1px solid #ddd; background: white; border-radius: 20px; cursor: pointer; display: flex; align-items: center; gap: 5px; font-size: 13px;">
+                    <i class="fas fa-calendar-check" style="color:#3498db;"></i> 연도 선택 <i class="fas fa-caret-down"
+                        style="color:#999;"></i>
+                </button>
+                <div id="yearDropList"
+                    style="display:none; position:absolute; top:110%; right:0; background:white; border:1px solid #ddd; box-shadow:0 3px 10px rgba(0,0,0,0.1); border-radius:8px; padding:10px; min-width:150px; z-index:100;">
+                </div>
+            </div>
+            <button onclick="RetentionModule.analyze()" class="hd-btn btn-search"
+                style="border-radius: 20px; background:#e67e22;"><i class="fas fa-search"></i> 조회</button>
+        </div>
+    </div>
+
+    <!-- Content Area (Scrollable) -->
+    <div class="pres-body" style="overflow-y: auto; display: flex; flex-direction: column; gap: 40px; padding: 30px;">
+
+        <!-- Section 1: KPIs & Charts -->
+        <div class="ret-section">
+            <div class="kpi-row" style="margin-bottom:20px; grid-template-columns: 1fr 1fr;">
+                <div class="kpi-box" style="border-left-color: #9b59b6; background:white;">
+                    <div class="kpi-label">🔄 고객 유지율 (Retention Rate)</div>
+                    <div class="kpi-total" id="retRateTotal" style="color:#9b59b6">- %</div>
+                    <div style="font-size:12px; color:#666; margin-top:5px;" id="retRateDesc">전년 대비 유지 비율</div>
+                </div>
+                <div class="kpi-box" style="border-left-color: #27ae60; background:white;">
+                    <div class="kpi-label">💎 핵심 충성 고객 (Loyal)</div>
+                    <div class="kpi-total" id="retLoyalTotal" style="color:#27ae60">- 명</div>
+                    <div style="font-size:12px; color:#666; margin-top:5px;" id="retLoyalDesc">3년 연속 방문 등</div>
+                </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; height: 400px;">
+                <div class="glass-panel" style="display:flex; flex-direction:column; padding:20px;">
+                    <div class="chart-title">🌊 연도별 고객 유지 흐름 (Waterfall)</div>
+                    <div style="flex:1; position:relative;"><canvas id="retWaterfallChart"></canvas></div>
+                </div>
+                <div class="glass-panel" style="display:flex; flex-direction:column; padding:20px;">
+                    <div class="chart-title">🎯 방문 빈도 점유율 (Pie)</div>
+                    <div style="flex:1; position:relative;"><canvas id="retPieChart"></canvas></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 2: Insight / Text -->
+        <div class="ret-section">
+            <div class="glass-panel" style="padding:40px; max-width:800px; margin: 0 auto; text-align:center;">
+                <h3 style="color:#2c3e50; margin-bottom:20px;">💡 Insight</h3>
+                <p style="font-size:16px; color:#555; line-height:1.6;">
+                    데이터 분석 결과, <b>연속 수검 사업장</b>의 이탈률이 현저히 낮습니다.<br>
+                    초기 2년 정착 유도가 LTV(Lifetime Value) 증대의 핵심입니다.
+                </p>
+                <div style="margin-top:30px; padding:20px; background:#f9f9f9; border-radius:8px;">
+                    <strong style="display:block; margin-bottom:10px;">전략 제언</strong>
+                    <ul style="text-align:left; color:#666; padding-left:20px;">
+                        <li>신규 유입 1년차 집중 케어 프로그램 가동</li>
+                        <li>3년 이상 장기 고객 대상 혜택 강화</li>
+                        <li>이탈 징후(검진 인원 감소 등) 조기 경보 시스템 도입</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<style>
+    #ret-slide-2 {
+        left: 100%;
+    }
+</style>

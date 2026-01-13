@@ -1,0 +1,67 @@
+<div class="action-bar" style="justify-content:flex-end;">
+    <div style="display:flex; gap:10px; width: 65%; justify-content:flex-end; align-items:center;">
+        <div class="search-select-wrapper"><input type="text" id="clientSearchInput" class="search-input"
+                placeholder="사업장 검색" onclick="showDropdown()" onkeyup="filterClientDropdown()"><i
+                class="fas fa-search search-icon"></i>
+            <div id="clientDropdownList" class="search-dropdown"></div>
+        </div>
+        <div style="display:flex; align-items:center; gap:5px;">
+            <select id="detailRankYear" class="chart-select" style="width:80px;"
+                onchange="DetailModule.updateRankingYear()">
+                <option value="all">전체</option>
+            </select>
+            <span class="sort-toggle" onclick="DetailModule.toggleClientSort()"><i class="fas fa-sort"></i> <span
+                    id="sortLabel">가나다순</span></span>
+        </div>
+        <button class="btn-refresh" onclick="DetailModule.renderDetailView()"><i class="fas fa-play"></i> 분석 실행</button>
+    </div>
+</div>
+<div id="detailPlaceholder" style="text-align:center; padding:100px; color:#aaa;">
+    <i class="fas fa-search" style="font-size:48px; margin-bottom:20px;"></i>
+    <h3>사업장을 검색하여 상세 분석을 확인하세요</h3>
+</div>
+<div id="detailContent" style="display:none;">
+    <div class="kpi-row">
+        <div class="kpi-box">
+            <div class="kpi-label">매출</div>
+            <div class="kpi-list" id="dtRevList"></div>
+            <div class="kpi-total" id="dtRev">-</div>
+        </div>
+        <div class="kpi-box">
+            <div class="kpi-label">인원</div>
+            <div class="kpi-list" id="dtCntList"></div>
+            <div class="kpi-total" id="dtCnt">-</div>
+        </div>
+        <div class="kpi-box">
+            <div class="kpi-label">주요 수검 연령대</div>
+            <div style="flex:1;"></div>
+            <div class="kpi-total" id="dtAge" style="font-size:20px;">-</div>
+        </div>
+    </div>
+    <div class="chart-grid-2">
+        <div class="chart-wrap">
+            <div class="chart-title">📊 연도별 실적</div><canvas id="dtAnnualChart"></canvas>
+        </div>
+        <div class="chart-wrap">
+            <div class="chart-title">👥 성별/연령 분포</div><canvas id="dtDemoChart"></canvas>
+        </div>
+    </div>
+    <div class="chart-grid-2">
+        <div class="chart-wrap">
+            <div class="chart-title">📈 월별 수검 추이</div><canvas id="dtMonthChart"></canvas>
+        </div>
+        <div class="chart-wrap" style="overflow-y:auto;">
+            <div class="chart-title">📦 인기 패키지</div>
+            <table id="pkgTable">
+                <thead>
+                    <tr>
+                        <th class="text-left">패키지명</th>
+                        <th class="text-left">코드</th>
+                        <th>건수</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+</div>

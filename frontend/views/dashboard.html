@@ -1,0 +1,136 @@
+<div class="presentation-container">
+    <!-- Header Controls (Local) -->
+    <div class="pres-header">
+        <h2 class="pres-title"><i class="fas fa-chart-pie"></i> 연도별 종합 현황</h2>
+        <div class="pres-controls">
+            <span style="font-size: 13px; color: #666; font-weight: bold;">📅 분석 연도:</span>
+            <div class="local-year-dropdown" style="position:relative; display:inline-block;">
+                <button onclick="toggleLocalYearDropdown()" id="yearDropBtn"
+                    style="padding: 8px 20px; border: 1px solid #3498db; background: #fff; border-radius: 20px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 14px; color: #3498db; font-weight: bold; box-shadow: 0 2px 5px rgba(52, 152, 219, 0.2);">
+                    <i class="fas fa-calendar-check"></i> 연도 선택하기 <i class="fas fa-chevron-down"></i>
+                </button>
+                <div id="yearDropList"
+                    style="display:none; position:absolute; top:115%; right:0; background:white; border:1px solid #ddd; box-shadow:0 5px 15px rgba(0,0,0,0.15); border-radius:12px; padding:12px; min-width:180px; z-index:1000;">
+                    <div style="padding:10px; color:#999; text-align:center;">데이터 없음</div>
+                </div>
+            </div>
+            <button onclick="recalcAll()" class="hd-btn btn-search" style="border-radius: 20px;"><i
+                    class="fas fa-search"></i> 조회</button>
+        </div>
+    </div>
+
+    <!-- Content Area (Scrollable) -->
+    <div class="pres-body" style="overflow-y: auto;">
+        <div class="dashboard-content" style="padding: 30px; display: flex; flex-direction: column; gap: 30px;">
+
+            <!-- Section 1: KPIs -->
+            <div class="kpi-row">
+                <div class="kpi-box glass-panel">
+                    <div class="kpi-label">💰 매출 추이</div>
+                    <div class="kpi-list" id="kpiRevList"></div>
+                    <div class="kpi-total" id="kpiRevTotal">-</div>
+                </div>
+                <div class="kpi-box glass-panel">
+                    <div class="kpi-label">👥 검진 건수 추이</div>
+                    <div class="kpi-list" id="kpiCntList"></div>
+                    <div class="kpi-total" id="kpiCntTotal">-</div>
+                </div>
+                <div class="kpi-box glass-panel" style="border-left-color: #f39c12;">
+                    <div class="kpi-label">🏢 사업장 변동 추이</div>
+                    <div class="kpi-list" id="kpiChangeList"></div>
+                    <div class="kpi-total" id="kpiChangeTotal">-</div>
+                </div>
+            </div>
+
+            <!-- Section 2: Charts -->
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; height: 500px;"> <!-- Fixed height for charts area -->
+                <div class="glass-panel"
+                    style="display:flex; flex-direction:column; padding:20px; min-width:0; min-height:0;">
+                    <div class="chart-title">📈 연도별 매출 트렌드 <button onclick="resetChartHighlight()" class="btn-xs"><i
+                                class="fas fa-undo"></i></button></div>
+                    <div style="flex:1; position:relative; min-height:0; overflow:hidden;">
+                        <div id="trendChart" style="width:100%; height:100%;"></div>
+                    </div>
+                </div>
+                <div class="glass-panel"
+                    style="display:flex; flex-direction:column; padding:20px; min-width:0; min-height:0;">
+                    <div class="chart-title">📅 월별 매출 패턴 비교</div>
+                    <div style="flex:1; position:relative; min-height:0; overflow:hidden;"><canvas
+                            id="monthlyChart"></canvas></div>
+                </div>
+            </div>
+
+            <!-- Section 3: Details Table -->
+            <div class="glass-panel" style="display:flex; flex-direction:column; padding:20px; min-height: 500px;">
+                <h3 style="margin:0 0 15px 0; color:#2c3e50;">📊 매출 상위 사업장 상세 현황</h3>
+                <div style="flex:1; overflow:auto;">
+                    <table id="mainTable" class="bp-table" style="width:100%;">
+                        <thead></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Shared Presentation Styles */
+    .presentation-container {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        background: #f4f6f9;
+        overflow: hidden;
+    }
+
+    .pres-header {
+        height: 80px;
+        background: white;
+        border-bottom: 2px solid #ddd;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 30px;
+        flex-shrink: 0;
+    }
+
+    .pres-title {
+        margin: 0;
+        font-size: 26px;
+        color: #2c3e50;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+
+    .pres-controls {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .pres-body {
+        flex: 1;
+        position: relative;
+        /* overflow: hidden; REMOVED */
+    }
+
+    /* Reuse Glass Panel */
+    .glass-panel {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        border: 1px solid rgba(0, 0, 0, 0.02);
+    }
+
+    .btn-xs {
+        font-size: 10px;
+        padding: 2px 6px;
+        border: 1px solid #ddd;
+        background: white;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+</style>
