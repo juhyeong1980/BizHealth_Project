@@ -1,6 +1,6 @@
 fastapi==0.95.1
 uvicorn==0.22.0
 sqlalchemy==2.0.12
-pandas==2.0.1
+pandas
 pydantic==1.10.7
 python-multipart==0.0.6
