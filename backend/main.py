@@ -2,16 +2,27 @@
 import os
 from typing import List, Optional, Dict, Any
 
-from fastapi import FastAPI, Depends, HTTPException, Query
+from fastapi import FastAPI, Depends, HTTPException, Query, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import create_engine, func, case, desc, distinct
 from sqlalchemy.orm import sessionmaker, Session
 from pydantic import BaseModel
+import shutil
 
 # Import models
 from models import Base, Checkup, CompanyMap, CodeMap, Patient, CompanyExclude
+
+# Pydantic Models for Settings
+class CompanyMapCreate(BaseModel):
+    original_name: str
+    standard_name: str
+    memo: Optional[str] = None
+
+class CompanyExcludeCreate(BaseModel):
+    company_name: str
+    memo: Optional[str] = None
 
 # ---------------------------------------------------------
 # 1. 데이터베이스 설정
@@ -159,13 +170,13 @@ def create_map(dto: CompanyMapDTO, db: Session = Depends(get_db)):
         new_map = CompanyMap(original_name=dto.original_name, standard_name=dto.standard_name)
         db.add(new_map)
     db.commit()
-    return {"status": "ok"}
+    return {"status": "ok", "message": "저장되었습니다"}
 
 @app.delete("/api/company-map/{original_name}")
 def delete_map(original_name: str, db: Session = Depends(get_db)):
     db.query(CompanyMap).filter_by(original_name=original_name).delete()
     db.commit()
-    return {"status": "deleted"}
+    return {"status": "deleted", "message": "삭제되었습니다"}
 
 # --- Company Exclude Endpoints ---
 @app.get("/api/company-exclude")
@@ -180,7 +191,7 @@ def add_exclude(dto: CompanyExcludeDTO, db: Session = Depends(get_db)):
     if not existing:
         db.add(CompanyExclude(company_name=dto.company_name, memo=dto.memo))
         db.commit()
-    return {"status": "added"}
+    return {"status": "added", "message": "추가되었습니다"}
 
 @app.delete("/api/company-exclude/{company_name}")
 def delete_exclude(company_name: str, db: Session = Depends(get_db)):
@@ -189,27 +200,7 @@ def delete_exclude(company_name: str, db: Session = Depends(get_db)):
     db.commit()
     return {"status": "deleted"}
 
-# --- Company Exclude Endpoints ---
-@app.get("/api/company-exclude")
-def get_excludes(db: Session = Depends(get_db)):
-    """제외된 회사 목록 반환"""
-    return [c.company_name for c in db.query(CompanyExclude).all()]
 
-@app.post("/api/company-exclude")
-def add_exclude(dto: CompanyExcludeDTO, db: Session = Depends(get_db)):
-    """회사 제외 추가"""
-    existing = db.query(CompanyExclude).filter_by(company_name=dto.company_name).first()
-    if not existing:
-        db.add(CompanyExclude(company_name=dto.company_name, memo=dto.memo))
-        db.commit()
-    return {"status": "added"}
-
-@app.delete("/api/company-exclude/{company_name}")
-def delete_exclude(company_name: str, db: Session = Depends(get_db)):
-    """회사 제외 취소"""
-    db.query(CompanyExclude).filter_by(company_name=company_name).delete()
-    db.commit()
-    return {"status": "deleted"}
 
 @app.get("/api/stats")
 def get_dashboard_stats(
@@ -541,4 +532,73 @@ def sync_config(dto: ConfigSyncDTO, db: Session = Depends(get_db)):
         db.add(CompanyExclude(company_name=e))
         
     db.commit()
-    return {"status": "synced", "maps": len(dto.maps), "excludes": len(dto.excludes)}
+    return {"status": "synced", "maps": len(dto.maps), "excludes": len(dto.excludes), "message": "동기화 완료"}
+
+# ---------------------------------------------------------
+# 4. 데이터 관리 API (Settings & Upload)
+# ---------------------------------------------------------
+
+# 4-1. 사업장명 병합 규칙 관리
+@app.get("/api/settings/company-map")
+def get_company_maps(db: Session = Depends(get_db)):
+    return db.query(CompanyMap).all()
+
+@app.post("/api/settings/company-map")
+def create_company_map(rule: CompanyMapCreate, db: Session = Depends(get_db)):
+    existing = db.query(CompanyMap).filter(CompanyMap.original_name == rule.original_name).first()
+    if existing:
+        existing.standard_name = rule.standard_name
+        existing.memo = rule.memo
+    else:
+        new_rule = CompanyMap(original_name=rule.original_name, standard_name=rule.standard_name, memo=rule.memo)
+        db.add(new_rule)
+    db.commit()
+    return {"message": "규칙이 저장되었습니다"}
+
+@app.delete("/api/settings/company-map/{original_name}")
+def delete_company_map(original_name: str, db: Session = Depends(get_db)):
+    rule = db.query(CompanyMap).filter(CompanyMap.original_name == original_name).first()
+    if not rule:
+        raise HTTPException(status_code=404, detail="규칙을 찾을 수 없습니다")
+    db.delete(rule)
+    db.commit()
+    return {"message": "규칙이 삭제되었습니다"}
+
+# 4-2. 제외 사업장 관리
+@app.get("/api/settings/exclude")
+def get_excludes(db: Session = Depends(get_db)):
+    return db.query(CompanyExclude).all()
+
+@app.post("/api/settings/exclude")
+def add_exclude(item: CompanyExcludeCreate, db: Session = Depends(get_db)):
+    existing = db.query(CompanyExclude).filter(CompanyExclude.company_name == item.company_name).first()
+    if not existing:
+        new_exclude = CompanyExclude(company_name=item.company_name, memo=item.memo)
+        db.add(new_exclude)
+        db.commit()
+    return {"message": "제외 항목이 추가되었습니다"}
+
+@app.delete("/api/settings/exclude/{company_name}")
+def delete_exclude(company_name: str, db: Session = Depends(get_db)):
+    item = db.query(CompanyExclude).filter(CompanyExclude.company_name == company_name).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="항목을 찾을 수 없습니다")
+    db.delete(item)
+    db.commit()
+    return {"message": "제외 항목이 삭제되었습니다"}
+
+# 4-3. 파일 업로드 (DB 및 CSV)
+@app.post("/api/upload")
+async def upload_file(file: UploadFile = File(...)):
+    # 허용된 파일 확장자 확인
+    if not (file.filename.endswith(".csv") or file.filename.endswith(".db")):
+        raise HTTPException(status_code=400, detail=".csv 및 .db 파일만 업로드 가능합니다")
+    
+    # 저장 경로 설정 (현재 백엔드 디렉토리)
+    file_location = f"./{file.filename}"
+    
+    # 파일 저장
+    with open(file_location, "wb+") as file_object:
+        shutil.copyfileobj(file.file, file_object)
+    
+    return {"info": f"파일 '{file.filename}'이(가) '{file_location}'에 저장되었습니다"}

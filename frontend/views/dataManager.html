@@ -1,0 +1,143 @@
+<div style="padding: 20px; font-family: 'Inter', sans-serif;">
+    <h2 style="margin-top: 0; color: #333; border-bottom: 2px solid #eee; padding-bottom: 15px;">
+        <i class="fas fa-cogs" style="color: #666;"></i> 데이터 관리 센터
+    </h2>
+
+    <!-- 탭 메뉴 -->
+    <div style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid #ddd;">
+        <button onclick="DataManager.switchTab('merge')" id="tab-merge" class="tab-btn active">🏢 사업장 병합 규칙</button>
+        <button onclick="DataManager.switchTab('exclude')" id="tab-exclude" class="tab-btn">🚫 제외 사업장 관리</button>
+        <button onclick="DataManager.switchTab('upload')" id="tab-upload" class="tab-btn">📤 파일 업로드</button>
+    </div>
+
+    <!-- 1. 병합 규칙 관리 (Merge) -->
+    <div id="view-merge" class="dm-view">
+        <div class="card"
+            style="padding: 20px; background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+            <div
+                style="display: flex; gap: 10px; margin-bottom: 15px; background: #f8f9fa; padding: 15px; border-radius: 6px; align-items: center;">
+                <input type="text" id="merge-origin" placeholder="원본 이름 (예: 삼성전자 수원)" style="flex: 2; padding: 8px;">
+                <i class="fas fa-arrow-right" style="color: #888;"></i>
+                <input type="text" id="merge-standard" placeholder="표준 이름 (예: 삼성전자)" style="flex: 2; padding: 8px;">
+                <input type="text" id="merge-memo" placeholder="메모 (선택)" style="flex: 1; padding: 8px;">
+                <button onclick="DataManager.addMergeRule()"
+                    style="background: #007bff; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer;">
+                    <i class="fas fa-plus"></i> 추가
+                </button>
+            </div>
+
+            <table class="data-table" style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #f1f3f5; color: #495057;">
+                        <th style="padding: 10px; text-align: left;">원본 이름</th>
+                        <th style="padding: 10px; text-align: left;">표준 이름</th>
+                        <th style="padding: 10px; text-align: left;">메모</th>
+                        <th style="padding: 10px; text-align: center;">관리</th>
+                    </tr>
+                </thead>
+                <tbody id="merge-list">
+                    <!-- JS로 데이터 로드 -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 2. 제외 관리 (Exclude) -->
+    <div id="view-exclude" class="dm-view" style="display: none;">
+        <div class="card"
+            style="padding: 20px; background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+            <div
+                style="display: flex; gap: 10px; margin-bottom: 15px; background: #f8f9fa; padding: 15px; border-radius: 6px;">
+                <input type="text" id="exclude-name" placeholder="제외할 사업장 이름" style="flex: 3; padding: 8px;">
+                <input type="text" id="exclude-memo" placeholder="사유 (예: 퇴사자, 테스트용)" style="flex: 2; padding: 8px;">
+                <button onclick="DataManager.addExcludeRule()"
+                    style="background: #dc3545; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer;">
+                    <i class="fas fa-ban"></i> 제외 추가
+                </button>
+            </div>
+
+            <table class="data-table" style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #f1f3f5; color: #495057;">
+                        <th style="padding: 10px; text-align: left;">사업장 이름</th>
+                        <th style="padding: 10px; text-align: left;">메모</th>
+                        <th style="padding: 10px; text-align: center;">관리</th>
+                    </tr>
+                </thead>
+                <tbody id="exclude-list">
+                    <!-- JS로 데이터 로드 -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 3. 파일 업로드 (Upload) -->
+    <div id="view-upload" class="dm-view" style="display: none;">
+        <div class="card"
+            style="padding: 40px; background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); text-align: center;">
+            <i class="fas fa-cloud-upload-alt" style="font-size: 48px; color: #007bff; margin-bottom: 20px;"></i>
+            <h3 style="margin-bottom: 10px;">데이터 파일 업로드</h3>
+            <p style="color: #666; margin-bottom: 30px;">
+                <code>healthcare.db</code> 또는 <code>csv2024.csv</code> 같은 파일을 이곳에 업로드하세요.<br>
+                파일은 <strong>서버(Backend)</strong> 폴더로 바로 전송됩니다.
+            </p>
+
+            <div id="drop-zone"
+                style="border: 2px dashed #ccc; padding: 40px; border-radius: 10px; background: #fafafa; cursor: pointer; transition: all 0.3s;"
+                onclick="document.getElementById('file-input').click()"
+                ondragover="event.preventDefault(); this.style.background='#e9ecef'; this.style.borderColor='#007bff';"
+                ondragleave="this.style.background='#fafafa'; this.style.borderColor='#ccc';"
+                ondrop="DataManager.handleDrop(event)">
+
+                <p style="font-size: 16px; color: #555;">여기를 클릭하거나 파일을 드래그하세요</p>
+                <input type="file" id="file-input" style="display: none;"
+                    onchange="DataManager.uploadFile(this.files[0])">
+            </div>
+
+            <div id="upload-status" style="margin-top: 20px; font-weight: bold;"></div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .tab-btn {
+        padding: 10px 20px;
+        border: none;
+        background: none;
+        cursor: pointer;
+        font-size: 14px;
+        color: #666;
+        border-bottom: 2px solid transparent;
+        transition: all 0.2s;
+    }
+
+    .tab-btn.active {
+        color: #007bff;
+        border-bottom: 2px solid #007bff;
+        font-weight: bold;
+    }
+
+    .tab-btn:hover {
+        background: #f8f9fa;
+    }
+
+    .data-table td {
+        border-bottom: 1px solid #eee;
+        padding: 10px;
+        font-size: 14px;
+    }
+
+    .del-btn {
+        background: #ffe3e3;
+        color: #e03131;
+        border: none;
+        padding: 5px 10px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+    }
+
+    .del-btn:hover {
+        background: #ffc9c9;
+    }
+</style>

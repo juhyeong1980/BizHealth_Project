@@ -71,7 +71,8 @@ function updateTitle(viewName) {
         'bp_strategy1': '⚙️ 내부 프로세스 강화',
         'bp_strategy2': '👥 고객지원 효율화',
         'bp_threats': '🛡️ 위협 요소 대응',
-        'businessPlan': '📅 2026 사업계획'
+        'businessPlan': '📅 2026 사업계획',
+        'dataManager': '🛠️ 데이터 관리 센터'
     };
     const titleEl = document.getElementById('pageTitleText');
     if (titleEl) titleEl.innerHTML = titles[viewName] || 'BizHealth';
@@ -110,6 +111,10 @@ function initTabScripts(viewName) {
                 CodeCheckApp.render();
             }, 50);
         }
+    }
+    // [NEW] Data Manager Initialization
+    else if (viewName === 'dataManager') {
+        if (typeof DataManager !== 'undefined') DataManager.init();
     }
     // [NEW] Business Plan Sub-menus or Main
     else if (viewName.startsWith('bp_') || viewName === 'businessPlan') {
