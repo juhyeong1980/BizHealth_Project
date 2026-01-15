@@ -1,288 +1,436 @@
-// --- Detail Module ---
-// (Refactored to use Backend API)
-
+// --- Detail Module (Refactored v19.0) ---
 const DetailModule = (function () {
 
-    let rankingYear = 'all'; // 'all' or specific year (e.g., 2024)
+    let ALL_YEARS = [];
+    let SELECTED_YEARS = new Set();
+    let ALL_COMPANIES = [];
+    let CACHED_DATA = null;
 
-    function init() {
-        populateRankingYearSelect();
-        populateClientDropdown();
-
-        // Event Listeners for improved UX
-        const input = document.getElementById('clientSearchInput');
-        if (input) {
-            input.addEventListener('focus', showDropdown);
-            // Hide on outside click handled by global listener or we can add specific one here if needed
-        }
-    }
-
-    function populateRankingYearSelect() {
-        const sel = document.getElementById('detailRankYear');
-        if (!sel) return;
-
-        // Keep 'all' option
-        const currentVal = sel.value;
-        sel.innerHTML = '<option value="all">누적 기준</option>';
-
-        Array.from(STATE.years).sort((a, b) => b - a).forEach(y => {
-            const opt = document.createElement('option');
-            opt.value = y;
-            opt.innerText = `${y}년 매출순`;
-            sel.appendChild(opt);
-        });
-
-        // Restore selection if possible
-        if (currentVal && (currentVal === 'all' || STATE.years.has(parseInt(currentVal)))) {
-            sel.value = currentVal;
-        } else {
-            sel.value = 'all';
-        }
-        rankingYear = sel.value;
-    }
-
-    function updateRankingYear() {
-        const sel = document.getElementById('detailRankYear');
-        if (sel) rankingYear = sel.value;
-
-        // If user selects a specific year, force sort mode to 'rev' (revenue) for better UX
-        if (rankingYear !== 'all') {
-            CLIENT_SORT_MODE = 'rev';
-            document.getElementById('sortLabel').innerText = '매출순';
-        }
-
-        populateClientDropdown();
-    }
-
-    function populateClientDropdown() {
-        // Calculate value based on rankingYear (Uses AGG_DATA global, which is now populated from API)
-        if (!AGG_DATA) return;
-
-        CLIENT_LIST = Object.keys(AGG_DATA).map(n => {
-            let val = 0;
-            if (rankingYear === 'all') {
-                val = AGG_DATA[n].t; // Total revenue
-            } else {
-                const y = parseInt(rankingYear);
-                val = AGG_DATA[n].y[y] || 0; // Specific year revenue
-            }
-            return { n: n, c: cleanName(n), v: val };
-        });
-
-        renderDropdownList();
-    }
-
-    function renderDropdownList() {
-        const l = document.getElementById('clientDropdownList');
-        if (!l) return;
-
-        const input = document.getElementById('clientSearchInput');
-        const v = input ? input.value.toLowerCase() : '';
-
-        let f = CLIENT_LIST.filter(i => i.n.toLowerCase().includes(v));
-
-        // Filter out zero revenue items if specific year is selected
-        if (rankingYear !== 'all') {
-            f = f.filter(i => i.v > 0);
-        }
-
-        if (CLIENT_SORT_MODE === 'name') {
-            f.sort((a, b) => a.c.localeCompare(b.c));
-        } else {
-            f.sort((a, b) => b.v - a.v);
-        }
-
-        l.innerHTML = '';
-        if (!f.length) {
-            l.innerHTML = '<div style="padding:10px; color:#999;">검색 결과 없음</div>';
-            return;
-        }
-
-        f.slice(0, 100).forEach(i => {
-            const d = document.createElement('div');
-            d.className = 'search-item';
-            d.innerHTML = `<span>${i.n}</span><span class="rev">${i.v.toLocaleString()}</span>`;
-            d.onclick = () => {
-                if (input) input.value = i.n;
-                l.style.display = 'none';
-                renderDetailView(); // Auto-render on selection
-            };
-            l.appendChild(d);
-        });
-    }
-
-    function filterClientDropdown() { renderDropdownList(); }
-
-    function toggleClientSort() {
-        CLIENT_SORT_MODE = CLIENT_SORT_MODE === 'name' ? 'rev' : 'name';
-        const label = document.getElementById('sortLabel');
-        if (label) label.innerText = CLIENT_SORT_MODE === 'name' ? '가나다순' : '매출순';
-        renderDropdownList();
-    }
-
-    async function renderDetailView() {
-        const input = document.getElementById('clientSearchInput');
-        const name = input ? input.value : '';
-
-        if (!name) { alert('사업장을 선택해주세요.'); return; }
-
-        const div = document.getElementById('detailContent');
-        if (div) div.style.display = 'block';
-
-        const ph = document.getElementById('detailPlaceholder');
-        if (ph) ph.style.display = 'none';
-
-        // Fetch Data from API
-        const params = new URLSearchParams();
-        STATE.selectedYears.forEach(y => params.append('years', y));
-
+    async function init() {
+        console.log("DetailModule Init v20.1 Loaded");
         try {
-            const res = await fetch(`${API_BASE_URL}/api/company/${encodeURIComponent(name)}/stats?${params}`);
-            if (!res.ok) throw new Error("API call failed");
+            // 1. Fetch Years
+            const yRes = await fetch(`${API_BASE_URL}/api/years`);
+            ALL_YEARS = await yRes.json();
+            SELECTED_YEARS = new Set(ALL_YEARS); // Default All
+            renderYearToggles();
 
-            const data = await res.json();
-            // Expected: { summary: {rev, cnt, max_age}, annual: {}, monthly: {}, demographics: {'20':{M,F}...}, packages: {} }
-
-            // Update KPIs
-            const elRev = document.getElementById('dtRev');
-            const elCnt = document.getElementById('dtCnt');
-            if (elRev) elRev.innerText = (data.summary.rev || 0).toLocaleString() + '원';
-            if (elCnt) elCnt.innerText = (data.summary.cnt || 0).toLocaleString() + '명';
-
-            const elAge = document.getElementById('dtAge');
-            if (elAge) elAge.innerText = data.summary.max_age || '-';
-
-            // KPI Rows (Annual Growth)
-            const sys = Array.from(STATE.selectedYears).sort((a, b) => a - b);
-            let hr = '', hc = '';
-            let pr = 0, pc = 0;
-
-            sys.forEach((y, i) => {
-                const d = data.annual[y] || { r: 0, c: 0 };
-                let rdS = '', cdS = '';
-                if (i > 0) {
-                    const rd = d.r - pr, cd = d.c - pc;
-                    const rc = rd > 0 ? '#e74c3c' : (rd < 0 ? '#3498db' : '#999');
-                    const cc = cd > 0 ? '#e74c3c' : (cd < 0 ? '#3498db' : '#999');
-                    if (rd !== 0) rdS = `<small style="color:${rc};font-size:11px;margin-right:4px;">(${rd > 0 ? '+' : ''}${rd.toLocaleString()})</small>`;
-                    if (cd !== 0) cdS = `<small style="color:${cc};font-size:11px;margin-right:4px;">(${cd > 0 ? '+' : ''}${cd.toLocaleString()})</small>`;
-                }
-                hr += `<div class="kpi-row-item"><span>${y}년</span><span>${rdS}${d.r.toLocaleString()}</span></div>`;
-                hc += `<div class="kpi-row-item"><span>${y}년</span><span>${cdS}${d.c.toLocaleString()}</span></div>`;
-                pr = d.r; pc = d.c;
-            });
-
-            const elRevList = document.getElementById('dtRevList');
-            const elCntList = document.getElementById('dtCntList');
-            if (elRevList) elRevList.innerHTML = hr;
-            if (elCntList) elCntList.innerHTML = hc;
-
-            // Charts
-            renderAnnualChart(sys, data.annual);
-            renderDemoChart(data.demographics);
-            renderMonthChart(sys, data.monthly);
-
-            // Package Table
-            const tb = document.querySelector('#pkgTable tbody');
-            if (tb) {
-                tb.innerHTML = '';
-                Object.entries(data.packages).sort((a, b) => b[1] - a[1]).slice(0, 20).forEach(([p, c]) => {
-                    const nm = window.CODE_MAP[p] || '-';
-                    tb.innerHTML += `<tr><td class="text-left" style="font-weight:bold;">${nm}</td><td class="text-left" style="color:#666; font-size:12px;">${p}</td><td>${c}</td></tr>`;
-                });
-            }
+            // 2. Fetch Companies (for global search - returns [{name, rev}, ...])
+            const cRes = await fetch(`${API_BASE_URL}/api/company-list`);
+            ALL_COMPANIES = await cRes.json();
+            // No need to render datalist init
 
         } catch (e) {
-            console.error("Detail load error:", e);
-            alert("상세 데이터를 불러오지 못했습니다.");
+            console.error("Init Error:", e);
         }
     }
 
-    function renderAnnualChart(sys, cY) {
-        const can = document.getElementById('dtAnnualChart');
-        if (!can) return;
-        if (window.dtA) window.dtA.destroy();
+    // --- UI Rendering ---
 
-        window.dtA = new Chart(can, {
-            type: 'bar',
+    function renderYearToggles() {
+        const c = document.getElementById('dtYearFilter');
+        if (!c) return;
+        c.innerHTML = '';
+
+        // 'All' Toggle (Virtual)
+        const btnAll = document.createElement('button');
+        btnAll.className = 'year-toggle active';
+        btnAll.innerText = '전체';
+        btnAll.onclick = () => toggleAllYears(btnAll);
+        c.appendChild(btnAll);
+
+        ALL_YEARS.forEach(y => {
+            const btn = document.createElement('button');
+            btn.className = 'year-toggle active'; // Default On
+            btn.innerText = y;
+            btn.dataset.year = y;
+            btn.onclick = () => toggleYear(y, btn);
+            c.appendChild(btn);
+        });
+    }
+
+    // --- Custom Dropdown Logic ---
+
+    function showSearchDropdown() {
+        // Show default list (Top revenue)
+        filterSearchDropdown("");
+    }
+
+    function hideSearchDropdown() {
+        const dd = document.getElementById('dtSearchDropdown');
+        if (dd) dd.style.display = 'none';
+    }
+
+    function filterSearchDropdown(keyword) {
+        const dd = document.getElementById('dtSearchDropdown');
+        if (!dd) return;
+
+        keyword = (keyword || "").toLowerCase().trim();
+
+        // Filter
+        let matches = ALL_COMPANIES;
+        if (keyword) {
+            matches = ALL_COMPANIES.filter(c => c.name.toLowerCase().includes(keyword));
+        }
+
+        // Show All Results
+        const results = matches;
+
+        dd.innerHTML = '';
+        if (results.length === 0) {
+            dd.innerHTML = '<div style="padding:10px; color:#aaa; font-size:12px;">검색 결과가 없습니다.</div>';
+        } else {
+            results.forEach(c => {
+                const item = document.createElement('div');
+                item.className = 'custom-dropdown-item';
+                item.innerHTML = `<span>${c.name}</span><span class="rev">${(c.rev || 0).toLocaleString()}원</span>`;
+                item.onmousedown = function () { // use mousedown to fire before blur
+                    const input = document.getElementById('dtSearchInput');
+                    if (input) input.value = c.name;
+                    hideSearchDropdown();
+                    renderDetailView();
+                };
+                dd.appendChild(item);
+            });
+        }
+        dd.style.display = 'block';
+    }
+
+    // --- Interaction ---
+
+    function toggleYear(year, btn) {
+        if (SELECTED_YEARS.has(year)) {
+            SELECTED_YEARS.delete(year);
+            btn.classList.remove('active');
+        } else {
+            SELECTED_YEARS.add(year);
+            btn.classList.add('active');
+        }
+        // Update All Btn State check
+        checkAllBtnState();
+        // Auto refresh? Maybe wait for click? User requested click based?
+        // Let's optimize: refresh if already viewing
+        if (document.getElementById('dtDetailContent').style.display !== 'none') {
+            renderDetailView();
+        }
+    }
+
+    function toggleAllYears(btn) {
+        const isActive = btn.classList.contains('active');
+        if (isActive) {
+            // Turn off all
+            SELECTED_YEARS.clear();
+            btn.classList.remove('active');
+            document.querySelectorAll('.year-toggle[data-year]').forEach(b => b.classList.remove('active'));
+        } else {
+            // Turn on all
+            ALL_YEARS.forEach(y => SELECTED_YEARS.add(y));
+            btn.classList.add('active');
+            document.querySelectorAll('.year-toggle[data-year]').forEach(b => b.classList.add('active'));
+        }
+        if (document.getElementById('dtDetailContent').style.display !== 'none') {
+            renderDetailView();
+        }
+    }
+
+    function checkAllBtnState() {
+        // If all selected, activate All btn
+        const allBtn = document.querySelector('#dtYearFilter button.year-toggle:first-child'); // heuristic
+        if (!allBtn) return;
+        if (SELECTED_YEARS.size === ALL_YEARS.length) allBtn.classList.add('active');
+        else allBtn.classList.remove('active');
+    }
+
+    // --- Main Analysis ---
+
+    async function renderDetailView() {
+        const input = document.getElementById('dtSearchInput');
+        const name = input ? input.value.trim() : '';
+
+        if (!name) { alert('사업장명을 입력해주세요.'); return; }
+        // Optional: validate if in ALL_COMPANIES
+
+        // Show Loading?
+
+        try {
+            // Prepare Params
+            const params = new URLSearchParams();
+            if (SELECTED_YEARS.size === 0) {
+                // If None, maybe alert? Or show 0
+            } else {
+                SELECTED_YEARS.forEach(y => params.append('years', y));
+            }
+
+            const res = await fetch(`${API_BASE_URL}/api/company/${encodeURIComponent(name)}/stats?${params}`);
+            if (!res.ok) throw new Error("API Failed");
+            const data = await res.json();
+            CACHED_DATA = data;
+
+            // Show Content
+            document.getElementById('dtPlaceholder').style.display = 'none';
+            document.getElementById('dtDetailContent').style.display = 'block';
+
+            // 1. KPI Cards
+            document.getElementById('dtKpiRev').innerText = (data.summary.rev || 0).toLocaleString() + '원';
+            document.getElementById('dtKpiCnt').innerText = (data.summary.cnt || 0).toLocaleString() + '건'; // Changed unit
+            document.getElementById('dtKpiAvg').innerText = (data.summary.avg_price || 0).toLocaleString() + '원';
+            document.getElementById('dtKpiAge').innerText = data.summary.max_age;
+
+            // 2. Charts & Table
+            renderTrendChart(data.annual);
+            renderExamTypeChart(data.exam_types);
+            renderAnnualTable(data.annual); // [NEW] Table
+            renderMonthlyCharts(data.monthly); // [NEW] Monthly Charts
+
+        } catch (e) {
+            console.error(e);
+            alert('데이터 조회 중 오류가 발생했습니다.');
+        }
+    }
+
+    // --- Chart Renderers ---
+
+    function renderAnnualTable(annualData) {
+        const div = document.getElementById('dtAnnualTable');
+        if (!div) return;
+
+        const years = Array.from(SELECTED_YEARS).sort((a, b) => a - b);
+        if (years.length === 0) { div.innerHTML = ''; return; }
+
+        let html = `
+        <table style="width:100%; border-collapse:collapse; font-size:13px; text-align:center;">
+            <thead>
+                <tr style="background:#f8f9fa; border-bottom:1px solid #ddd; color:#555;">
+                    <th style="padding:8px;">연도</th>
+                    <th style="padding:8px;">매출액</th>
+                    <th style="padding:8px; font-size:11px; color:#888;">(전년대비)</th>
+                    <th style="padding:8px;">수검인원</th>
+                    <th style="padding:8px; font-size:11px; color:#888;">(전년대비)</th>
+                </tr>
+            </thead>
+            <tbody>`;
+
+        let prevR = 0;
+        let prevC = 0;
+
+        years.forEach((y, i) => {
+            const d = annualData[y] || { r: 0, c: 0 };
+            let diffRStr = '<span style="color:#ccc;">-</span>';
+            let diffCStr = '<span style="color:#ccc;">-</span>';
+
+            if (i > 0) {
+                const diffR = d.r - prevR;
+                const diffC = d.c - prevC;
+
+                const colorR = diffR > 0 ? '#E74C3C' : (diffR < 0 ? '#3498DB' : '#999');
+                const signR = diffR > 0 ? '▲' : (diffR < 0 ? '▼' : '');
+                if (diffR !== 0) diffRStr = `<span style="color:${colorR}; font-weight:bold;">${signR} ${Math.abs(diffR).toLocaleString()}</span>`;
+
+                const colorC = diffC > 0 ? '#E74C3C' : (diffC < 0 ? '#3498DB' : '#999');
+                const signC = diffC > 0 ? '▲' : (diffC < 0 ? '▼' : '');
+                if (diffC !== 0) diffCStr = `<span style="color:${colorC}; font-weight:bold;">${signC} ${Math.abs(diffC).toLocaleString()}</span>`;
+            }
+
+            html += `
+                <tr style="border-bottom:1px solid #eee;">
+                    <td style="padding:8px; font-weight:bold; color:#444;">${y}년</td>
+                    <td style="padding:8px;">${d.r.toLocaleString()}</td>
+                    <td style="padding:8px;">${diffRStr}</td>
+                    <td style="padding:8px;">${d.c.toLocaleString()}</td>
+                    <td style="padding:8px;">${diffCStr}</td>
+                </tr>`;
+
+            prevR = d.r;
+            prevC = d.c;
+        });
+
+        html += `</tbody></table>`;
+        div.innerHTML = html;
+    }
+
+    function renderTrendChart(annualData) {
+        const ctx = document.getElementById('dtTrendChart');
+        if (!ctx) return;
+        if (window.dtTrendChartInstance) window.dtTrendChartInstance.destroy();
+
+        // Sort years
+        const years = Array.from(SELECTED_YEARS).sort((a, b) => a - b);
+
+        const revs = years.map(y => annualData[y]?.r || 0);
+        const cnts = years.map(y => annualData[y]?.c || 0);
+        const avgs = years.map(y => annualData[y]?.avg || 0);
+
+        window.dtTrendChartInstance = new Chart(ctx, {
+            type: 'bar', // Mixed
             data: {
-                labels: sys.map(y => `${y}년`),
+                labels: years.map(y => `${y}년`),
                 datasets: [
-                    { label: '매출', data: sys.map(y => (cY[y]?.r || 0)), backgroundColor: sys.map(y => getYearColor(y)), barThickness: 40, yAxisID: 'y' },
-                    { label: '인원', data: sys.map(y => (cY[y]?.c || 0)), backgroundColor: '#566573', barThickness: 20, yAxisID: 'y1' }
+                    {
+                        type: 'line',
+                        label: '평균단가',
+                        data: avgs,
+                        borderColor: '#E74C3C',
+                        borderWidth: 2,
+                        tension: 0.3,
+                        yAxisID: 'y1',
+                        pointBackgroundColor: 'white',
+                        pointBorderColor: '#E74C3C'
+                    },
+                    {
+                        type: 'bar',
+                        label: '검진 건수',
+                        data: cnts,
+                        backgroundColor: '#3498DB',
+                        yAxisID: 'y',
+                        barPercentage: 0.5
+                    }
                 ]
             },
             options: {
+                responsive: true,
                 maintainAspectRatio: false,
+                onClick: (e, activeEls, chart) => {
+                    if (activeEls.length > 0) {
+                        const idx = activeEls[0].index;
+                        const label = chart.data.labels[idx];
+                        const year = parseInt(label.replace('년', ''));
+                        // Filter Monthly Chart
+                        if (CACHED_DATA) renderMonthlyCharts(CACHED_DATA.monthly, year);
+                    } else {
+                        // Reset
+                        if (CACHED_DATA) renderMonthlyCharts(CACHED_DATA.monthly, null);
+                    }
+                },
+                plugins: {
+                    tooltip: {
+                        padding: 18,
+                        titleFont: { size: 18 },
+                        bodyFont: { size: 14 },
+                        callbacks: {
+                            afterBody: function (tooltipItems) {
+                                // Show Total Revenue
+                                const idx = tooltipItems[0].dataIndex;
+                                const r = revs[idx]; // From scope
+                                return '\n총 매출: ' + r.toLocaleString() + '원';
+                            }
+                        }
+                    }
+                },
                 scales: {
-                    y: { position: 'left' },
-                    y1: { position: 'right', grid: { drawOnChartArea: false } }
+                    y: { position: 'left', title: { display: true, text: '건수' } },
+                    y1: { position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: '단가(원)' } }
                 }
             }
         });
     }
 
-    function renderDemoChart(demographics) {
-        const can = document.getElementById('dtDemoChart');
-        if (!can) return;
-        if (window.dtD) window.dtD.destroy();
+    function renderExamTypeChart(typeData) {
+        const ctx = document.getElementById('dtTypeChart');
+        if (!ctx) return;
+        if (window.dtTypeChartInstance) window.dtTypeChartInstance.destroy();
 
-        const labels = ['20대', '30대', '40대', '50대', '60대↑'];
-        const keys = ['20', '30', '40', '50', '60'];
+        // Prepare data sorted by count
+        const labels = Object.keys(typeData);
+        const values = Object.values(typeData);
 
-        const dM = keys.map(k => demographics[k]?.M || 0);
-        const dF = keys.map(k => demographics[k]?.F || 0);
-
-        window.dtD = new Chart(can, {
-            type: 'bar',
+        window.dtTypeChartInstance = new Chart(ctx, {
+            type: 'doughnut',
             data: {
                 labels: labels,
-                datasets: [
-                    { label: '남성', data: dM, backgroundColor: '#AED6F1' },
-                    { label: '여성', data: dF, backgroundColor: '#F5B7B1' }
-                ]
+                datasets: [{
+                    data: values,
+                    backgroundColor: ['#2ECC71', '#3498DB', '#9B59B6', '#F1C40F', '#E67E22', '#95A5A6']
+                }]
             },
             options: {
-                indexAxis: 'y',
+                responsive: true,
                 maintainAspectRatio: false,
-                scales: { x: { stacked: true }, y: { stacked: true } }
+                plugins: {
+                    legend: { position: 'right' }
+                }
             }
         });
     }
 
-    function renderMonthChart(sys, cM) {
-        const can = document.getElementById('dtMonthChart');
-        if (!can) return;
-        if (window.dtM) window.dtM.destroy();
+    function renderMonthlyCharts(monthlyData) {
+        const ctxRev = document.getElementById('dtMonthRevChart');
+        const ctxCnt = document.getElementById('dtMonthCntChart');
+        if (!ctxRev || !ctxCnt) return;
 
-        window.dtM = new Chart(can, {
+        if (window.dtMonthRevInst) window.dtMonthRevInst.destroy();
+        if (window.dtMonthCntInst) window.dtMonthCntInst.destroy();
+
+        const years = Array.from(SELECTED_YEARS).sort((a, b) => a - b);
+        const labels = Array.from({ length: 12 }, (_, i) => `${i + 1}월`);
+        const colors = ['#3498DB', '#E74C3C', '#2ECC71', '#F1C40F', '#9B59B6'];
+
+        // Rev Datasets
+        const dsRev = years.map((y, i) => ({
+            label: `${y}년`,
+            data: monthlyData[y]?.r || Array(12).fill(0),
+            borderColor: colors[i % colors.length],
+            backgroundColor: colors[i % colors.length],
+            tension: 0.3,
+            fill: false
+        }));
+
+        // Cnt Datasets
+        const dsCnt = years.map((y, i) => ({
+            label: `${y}년`,
+            data: monthlyData[y]?.c || Array(12).fill(0),
+            borderColor: colors[i % colors.length],
+            backgroundColor: colors[i % colors.length],
+            tension: 0.3,
+            fill: false
+        }));
+
+        // Render Rev
+        window.dtMonthRevInst = new Chart(ctxRev, {
             type: 'line',
-            data: {
-                labels: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'],
-                datasets: sys.map(y => ({
-                    label: `${y}년`,
-                    data: cM[y] || Array(12).fill(0),
-                    borderColor: getYearColor(y),
-                    tension: 0.3,
-                    fill: false
-                }))
-            },
-            options: { maintainAspectRatio: false }
+            data: { labels: labels, datasets: dsRev },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    tooltip: {
+                        padding: 10,
+                        callbacks: {
+                            label: function (context) {
+                                let label = context.dataset.label || '';
+                                if (label) { label += ': '; }
+                                if (context.parsed.y !== null) { label += context.parsed.y.toLocaleString() + '원'; }
+                                return label;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Render Cnt
+        window.dtMonthCntInst = new Chart(ctxCnt, {
+            type: 'line',
+            data: { labels: labels, datasets: dsCnt },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    tooltip: { padding: 10 }
+                }
+            }
         });
     }
 
     return {
         init: init,
         renderDetailView: renderDetailView,
-        toggleClientSort: toggleClientSort,
-        updateRankingYear: updateRankingYear,
-        renderDropdownList: renderDropdownList // Exposed for global call
+        showSearchDropdown: showSearchDropdown,
+        hideSearchDropdown: hideSearchDropdown,
+        filterSearchDropdown: filterSearchDropdown
     };
 
 })();
 
-// Global proxies
-function showDropdown() { document.getElementById('clientDropdownList').style.display = 'block'; }
-// We exposed renderDropdownList directly in DetailModule return
-function filterClientDropdown() { if (DetailModule.renderDropdownList) DetailModule.renderDropdownList(); }
 window.DetailModule = DetailModule;

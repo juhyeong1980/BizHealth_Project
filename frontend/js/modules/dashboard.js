@@ -64,21 +64,44 @@ function renderYearFilter() {
         return;
     }
 
+    // [PERSISTENCE] Restore State from LocalStorage
+    const savedState = localStorage.getItem('bh_dashboard_state');
+    let savedYears = null;
+    if (savedState) {
+        try {
+            const parsed = JSON.parse(savedState);
+            if (parsed.years && Array.isArray(parsed.years)) savedYears = new Set(parsed.years);
+            // Restore Date Inputs
+            const sInput = document.getElementById('startDate');
+            const eInput = document.getElementById('endDate');
+            if (sInput && parsed.start) sInput.value = parsed.start;
+            if (eInput && parsed.end) eInput.value = parsed.end;
+        } catch (e) {
+            console.error("Failed to load dashboard state", e);
+        }
+    }
+
+    // [MODIFIED] Always default to All Years as per user request
+    // if (savedYears) { ... } 
+    STATE.selectedYears = new Set(STATE.years);
+
     // Style for dropdown items
     const itemStyle = "display: block; padding: 8px 10px; border-bottom: 1px solid #f0f0f0; font-size: 14px; cursor: pointer; transition: background 0.2s;";
 
-    // "All" Checkbox
     const allDiv = document.createElement('div');
     allDiv.className = 'year-item';
     allDiv.style.cssText = itemStyle + "font-weight:bold; color:#3498db; border-bottom: 2px solid #eee;";
-    allDiv.innerHTML = `<label style="cursor:pointer; display:flex; align-items:center; width:100%;"><input type="checkbox" id="checkAllYears" checked style="margin-right:8px;"> 전체 연도 선택</label>`;
+    // Check "All" only if all years are selected
+    const isAllSelected = (STATE.years.size === STATE.selectedYears.size);
+    allDiv.innerHTML = `<label style="cursor:pointer; display:flex; align-items:center; width:100%;"><input type="checkbox" id="checkAllYears" ${isAllSelected ? 'checked' : ''} style="margin-right:8px;"> 전체 연도 선택</label>`;
     list.appendChild(allDiv);
 
     Array.from(STATE.years).sort((a, b) => b - a).forEach(y => {
         const d = document.createElement('div');
         d.className = 'year-item';
         d.style.cssText = itemStyle;
-        d.innerHTML = `<label style="cursor:pointer; display:flex; align-items:center; width:100%;"><input type="checkbox" class="y-chk" value="${y}" checked style="margin-right:8px;"> ${y}년</label>`;
+        const isChecked = STATE.selectedYears.has(y);
+        d.innerHTML = `<label style="cursor:pointer; display:flex; align-items:center; width:100%;"><input type="checkbox" class="y-chk" value="${y}" ${isChecked ? 'checked' : ''} style="margin-right:8px;"> ${y}년</label>`;
         list.appendChild(d);
     });
 
@@ -136,6 +159,13 @@ async function recalcAll() {
 
     console.log("Fetching Stats with params:", params.toString());
 
+    // [PERSISTENCE] Save State
+    localStorage.setItem('bh_dashboard_state', JSON.stringify({
+        start: startDate,
+        end: endDate,
+        years: Array.from(STATE.selectedYears)
+    }));
+
     // 3. Call API
     try {
         const res = await fetch(`${API_BASE_URL}/api/stats?${params}`);
@@ -189,33 +219,56 @@ function renderDashboard(CL, MO, YT) {
     });
 
     // 증감 현황 계산 및 리스트 생성
+    // [Header] New / Lost / Net
+    // [Header] Legend in first row
     let changeHtml = '';
+
     let totalNew = 0, totalLost = 0;
 
     sys.forEach((y, i) => {
         let newCnt = 0, lostCnt = 0;
-        let changeStr = '<span style="color:#ccc; font-size:11px;">-</span>';
+        let netChange = 0;
 
         // 이전 연도가 내역에 있을 때만 비교 (sys 리스트 기준)
         if (i > 0) {
             const prevY = sys[i - 1];
             const currY = y;
             Object.values(CL).forEach(data => {
-                const cPrev = data.c[prevY] || 0;
-                const cCurr = data.c[currY] || 0;
-                if (cPrev === 0 && cCurr > 0) newCnt++;
-                else if (cPrev > 0 && cCurr === 0) lostCnt++;
+                const rPrev = data.y[prevY] || 0;
+                const rCurr = data.y[currY] || 0;
+
+                // [FILTER] Treat revenue <= 5,000,000 as inactive
+                const isActivePrev = rPrev > 5000000;
+                const isActiveCurr = rCurr > 5000000;
+
+                if (!isActivePrev && isActiveCurr) newCnt++;
+                else if (isActivePrev && !isActiveCurr) lostCnt++;
             });
-            changeStr = `<small style="color:#27ae60;font-size:11px;margin-right:4px;">(+${newCnt})</small><small style="color:#e74c3c;font-size:11px;">(-${lostCnt})</small>`;
             totalNew += newCnt;
             totalLost += lostCnt;
+            netChange = newCnt - lostCnt;
         }
 
-        const netChange = newCnt - lostCnt;
-        const netColor = netChange > 0 ? '#27ae60' : (netChange < 0 ? '#e74c3c' : '#555');
-        const netStr = i > 0 ? `<span style="color:${netColor}; margin-left:4px;">${netChange > 0 ? '+' : ''}${netChange}</span>` : '<span style="color:#ccc; font-size:11px;">-</span>';
+        const netColor = netChange > 0 ? '#27ae60' : (netChange < 0 ? '#e74c3c' : '#999');
+        const netStr = (i > 0) ? `${netChange > 0 ? '+' : ''}${netChange}` : '-';
 
-        changeHtml += `<div class="kpi-row-item"><span>${y}년</span><span>${changeStr}${netStr}</span></div>`;
+        let rowContent = '';
+        if (i === 0) {
+            // [LEGEND] First Row
+            rowContent = `<div style="display:flex; gap:12px; margin-right:5px; font-size:11px; color:#888; font-weight:bold;">
+                 <span style="width:30px; text-align:right;">신규</span>
+                 <span style="width:30px; text-align:right;">이탈</span>
+                 <span style="width:30px; text-align:right;">증감</span>
+               </div>`;
+        } else {
+            rowContent = `<div style="display:flex; gap:12px; margin-right:5px;">
+                 <span style="color:#27ae60; width:30px; text-align:right;">+${newCnt}</span>
+                 <span style="color:#e74c3c; width:30px; text-align:right;">-${lostCnt}</span>
+                 <span style="color:${netColor}; width:30px; text-align:right; font-weight:bold;">${netStr}</span>
+               </div>`;
+        }
+
+        changeHtml += `<div class="kpi-row-item" style="justify-content:space-between;"><span>${y}년</span>${rowContent}</div>`;
     });
 
     // 요소가 있을 때만 값 주입
@@ -224,7 +277,7 @@ function renderDashboard(CL, MO, YT) {
         kpiRevList.innerHTML = hr || '-';
         document.getElementById('kpiRevTotal').innerText = tr.toLocaleString() + '원';
         document.getElementById('kpiCntList').innerHTML = hc || '-';
-        document.getElementById('kpiCntTotal').innerText = tc.toLocaleString() + '명';
+        document.getElementById('kpiCntTotal').innerText = tc.toLocaleString() + '건';
 
         // Update Business Place Change
         const kpiChangeList = document.getElementById('kpiChangeList');
@@ -233,7 +286,7 @@ function renderDashboard(CL, MO, YT) {
         if (kpiChangeTotal) {
             const totalNet = totalNew - totalLost;
             const totalColor = totalNet > 0 ? '#27ae60' : (totalNet < 0 ? '#e74c3c' : '#2c3e50');
-            kpiChangeTotal.innerHTML = `<span style="color:${totalColor}">${totalNet > 0 ? '+' : ''}${totalNet}</span> <small style="font-size:14px; color:#888;">(신규 ${totalNew} / 중단 ${totalLost})</small>`;
+            kpiChangeTotal.innerHTML = `<span style="color:${totalColor}">${totalNet > 0 ? '+' : ''}${totalNet}</span> <small style="font-size:14px; color:#888;">(신규 ${totalNew} / 이탈 ${totalLost})</small>`;
         }
 
         Sales3DAdapter.render('trendChart', sys.map(y => `${y}년`), sys.map(y => YT[y]?.rev || 0));

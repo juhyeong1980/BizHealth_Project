@@ -98,6 +98,50 @@ body {
     box-shadow: 0 4px 12px rgba(74, 111, 165, 0.3);
 }
 
+.menu-item.has-submenu {
+    justify-content: space-between;
+}
+
+.submenu {
+    padding-left: 20px;
+    margin-bottom: 10px;
+    position: relative;
+}
+
+.submenu:before {
+    content: '';
+    position: absolute;
+    left: 30px;
+    top: 5px;
+    bottom: 5px;
+    width: 2px;
+    background: #e0e6ed;
+}
+
+.menu-item.sub {
+    font-size: 14px;
+    padding: 10px 15px;
+    margin-bottom: 5px;
+    background: transparent;
+    color: #64748b;
+    border-radius: 8px;
+    position: relative;
+    margin-left: 10px;
+}
+
+.menu-item.sub.active {
+    background: rgba(74, 111, 165, 0.1);
+    color: var(--primary);
+    box-shadow: none;
+    font-weight: 700;
+}
+
+.menu-item.sub:hover {
+    background: rgba(74, 111, 165, 0.05);
+    color: var(--primary);
+    transform: translateX(3px);
+}
+
 .divider {
     height: 1px;
     background: #f0f0f0;
@@ -313,12 +357,12 @@ body {
 }
 
 .kpi-label {
-    font-size: 14px;
-    color: var(--text-light);
-    font-weight: 700;
-    margin-bottom: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    font-size: 18px;
+    color: var(--text);
+    font-weight: 800;
+    margin-bottom: 15px;
+    /* text-transform: uppercase; removed for cleaner look */
+    letter-spacing: -0.5px;
 }
 
 .kpi-list {
@@ -357,7 +401,7 @@ body {
 }
 
 .chart-title {
-    font-size: 16px;
+    font-size: 18px;
     font-weight: 800;
     margin-bottom: 20px;
     color: var(--text);

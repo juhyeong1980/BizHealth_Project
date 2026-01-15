@@ -1,7 +1,7 @@
 <div class="presentation-container">
     <!-- Header Controls (Local) -->
-    <div class="pres-header">
-        <h2 class="pres-title"><i class="fas fa-chart-pie"></i> 연도별 종합 현황</h2>
+    <!-- Header Controls (Local) -->
+    <div class="pres-header" style="justify-content: flex-end;">
         <div class="pres-controls">
             <span style="font-size: 13px; color: #666; font-weight: bold;">📅 분석 연도:</span>
             <div class="local-year-dropdown" style="position:relative; display:inline-block;">
@@ -26,27 +26,28 @@
             <!-- Section 1: KPIs -->
             <div class="kpi-row">
                 <div class="kpi-box glass-panel">
-                    <div class="kpi-label">💰 매출 추이</div>
+                    <div class="kpi-label">💰 매출</div>
                     <div class="kpi-list" id="kpiRevList"></div>
                     <div class="kpi-total" id="kpiRevTotal">-</div>
                 </div>
                 <div class="kpi-box glass-panel">
-                    <div class="kpi-label">👥 검진 건수 추이</div>
+                    <div class="kpi-label">👥 검진 건수</div>
                     <div class="kpi-list" id="kpiCntList"></div>
                     <div class="kpi-total" id="kpiCntTotal">-</div>
                 </div>
                 <div class="kpi-box glass-panel" style="border-left-color: #f39c12;">
-                    <div class="kpi-label">🏢 사업장 변동 추이</div>
+                    <div class="kpi-label">🏢 협력사 현황</div>
                     <div class="kpi-list" id="kpiChangeList"></div>
                     <div class="kpi-total" id="kpiChangeTotal">-</div>
                 </div>
             </div>
 
             <!-- Section 2: Charts -->
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; height: 500px;"> <!-- Fixed height for charts area -->
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; height: 500px;">
+                <!-- Fixed height for charts area -->
                 <div class="glass-panel"
                     style="display:flex; flex-direction:column; padding:20px; min-width:0; min-height:0;">
-                    <div class="chart-title">📈 연도별 매출 트렌드 <button onclick="resetChartHighlight()" class="btn-xs"><i
+                    <div class="chart-title">📈 연도별 매출 <button onclick="resetChartHighlight()" class="btn-xs"><i
                                 class="fas fa-undo"></i></button></div>
                     <div style="flex:1; position:relative; min-height:0; overflow:hidden;">
                         <div id="trendChart" style="width:100%; height:100%;"></div>
@@ -54,7 +55,7 @@
                 </div>
                 <div class="glass-panel"
                     style="display:flex; flex-direction:column; padding:20px; min-width:0; min-height:0;">
-                    <div class="chart-title">📅 월별 매출 패턴 비교</div>
+                    <div class="chart-title">📅 월별 매출</div>
                     <div style="flex:1; position:relative; min-height:0; overflow:hidden;"><canvas
                             id="monthlyChart"></canvas></div>
                 </div>

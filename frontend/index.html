@@ -12,7 +12,7 @@
     <script src="https://cdn.jsdelivr.net/npm/echarts/dist/echarts.min.js"></script>
     <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1260.0.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=1920">
+    <link rel="stylesheet" href="style.css?v=2026">
 </head>
 
 <body>
@@ -44,15 +44,37 @@
 
         <div class="sidebar">
             <div class="logo"><i class="fas fa-chart-pie"></i> 건강검진사업부 </div>
-            <div class="menu-item active" onclick="loadTab('dashboard')">📊 연도별 현황</div>
+            <div class="menu-item active" onclick="loadTab('dashboard')">📊 종합현황</div>
             <div class="menu-item" onclick="loadTab('periodStatus')">📅 기간별 상세 현황</div>
             <div class="menu-item" onclick="loadTab('detail')">🔍 사업장 상세분석</div>
             <div class="menu-item" onclick="loadTab('orderStatus')">📉 수주/이탈 분석</div>
-            <div class="menu-item" onclick="loadTab('retentionView')">🔄 재방문 현황(beta)</div>
-            <!-- <div class="menu-item" onclick="loadTab('config')">⚙️ 설정 </div> -->
-            <div class="menu-item" onclick="loadTab('dataManager')">⚙️ 데이터 관리</div>
+            <div class="menu-item" onclick="loadTab('retentionView')">🔄 재방문 현황</div>
+            <div class="menu-item" onclick="loadTab('config')">⚙️ 설정 </div>
+            <!-- <div class="menu-item" onclick="loadTab('dataManager')">⚙️ 데이터 관리</div> -->
             <div class="divider"></div>
-            <div class="menu-item" onclick="loadTab('businessPlan')">📅 2026 사업계획</div>
+            <!-- Collapsible Business Plan Menu -->
+            <div class="menu-item has-submenu" onclick="toggleSubmenu('bp-submenu')">
+                📅 2026 사업계획 <i class="fas fa-chevron-down" style="float:right; margin-top:4px;"></i>
+            </div>
+            <div id="bp-submenu" class="submenu" style="display:none;">
+                <div class="menu-item sub" onclick="loadTab('bp_performance')"><i class="fas fa-chart-line"></i> 2025
+                    성과보고</div>
+                <div class="menu-item sub" onclick="loadTab('bp_targets')"><i class="fas fa-bullseye"></i> 2026 매출목표
+                </div>
+                <div class="menu-item sub" onclick="loadTab('bp_sales')"><i class="fas fa-briefcase"></i> 주요 영업활동 전략
+                </div>
+                <div class="menu-item sub" onclick="loadTab('bp_eff_sales')"><i class="fas fa-chart-pie"></i> 영업 효율화
+                </div>
+                <div class="menu-item sub" onclick="loadTab('bp_eff_support')"><i class="fas fa-headset"></i> 고객지원파트 효율화
+                </div>
+                <div class="menu-item sub" onclick="loadTab('bp_eff_results')"><i class="fas fa-file-signature"></i>
+                    결과처리파트 효율화</div>
+                <div class="menu-item sub" onclick="loadTab('bp_reservation_flow')"><i
+                        class="fas fa-project-diagram"></i>
+                    예약프로그램개발</div>
+                <div class="menu-item sub" onclick="loadTab('bp_fighting')"><i class="fas fa-fist-raised"></i>
+                    2026년 파이팅</div>
+            </div>
         </div>
 
         <div class="main">
@@ -61,26 +83,26 @@
     </div>
 
     <!-- Core & Utils -->
-    <script src="js/env.js?v=1.0"></script>
+    <script src="js/env.js?v=3.0"></script>
     <script src="js/core/state.js?v=17.0"></script>
     <script src="js/utils/utils.js?v=17.0"></script>
     <script src="js/utils/scaler.js?v=1.0"></script>
 
     <!-- Modules -->
     <script src="js/modules/file-loader.js?v=17.7"></script>
-    <script src="js/modules/dashboard.js?v=17.8"></script>
-    <script src="js/modules/detail.js?v=17.7"></script>
-    <script src="js/modules/retention.js?v=17.7"></script>
-    <script src="js/modules/order-status.js?v=17.7"></script>
+    <script src="js/modules/dashboard.js?v=17.26"></script>
+    <script src="js/modules/detail.js?v=20.7"></script>
+    <script src="js/modules/retention.js?v=17.13"></script>
+    <script src="js/modules/order-status.js?v=17.12"></script>
     <script src="js/modules/code-check.js?v=17.7"></script>
-    <script src="js/modules/business-plan.js?v=17.7"></script>
-    <script src="js/modules/period-status.js?v=17.15"></script>
-    <!-- <script src="js/modules/config.js?v=17.7"></script> -->
+    <script src="js/modules/business-plan.js?v=17.55"></script>
+    <script src="js/modules/period-status.js?v=17.31"></script>
+    <script src="js/modules/config.js?v=18.9"></script>
     <script src="js/modules/cloud-manager.js?v=17.7"></script>
     <script src="js/modules/data-manager.js?v=1.0"></script>
 
     <!-- Router & Main -->
-    <script src="js/core/router.js?v=17.7"></script>
+    <script src="js/core/router.js?v=17.9"></script>
     <script src="js/app.js?v=17.7"></script>
 </body>
 

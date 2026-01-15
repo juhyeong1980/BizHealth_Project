@@ -14,7 +14,7 @@ async function loadTab(viewName) {
         let html = '';
         // [NEW] Virtual Views (No file fetch needed)
         if (viewName.startsWith('bp_') || viewName === 'businessPlan') {
-            html = '<div id="bp-container" style="min-height:100%;"></div>'; // Placeholder
+            html = '<div id="bp-container" style="height:100%;"></div>'; // Placeholder
         } else {
             // 1. 해당 뷰 파일 Fetch (Cache Busting)
             const response = await fetch(`./views/${viewName}.html?v=${Date.now()}`);
@@ -60,17 +60,21 @@ async function loadTab(viewName) {
 
 function updateTitle(viewName) {
     const titles = {
-        'dashboard': '<i class="fas fa-chart-pie" style="color:#3498db;"></i> 연도별 현황',
+        'dashboard': '<i class="fas fa-chart-pie" style="color:#3498db;"></i> 종합현황',
         'periodStatus': '<i class="fas fa-calendar-check" style="color:#2ecc71;"></i> 기간별 상세 현황',
         'retentionView': '<i class="fas fa-sync-alt" style="color:#e67e22;"></i> 재방문 및 정착도 분석',
         'detail': '<i class="fas fa-search" style="color:#27ae60;"></i> 사업장 정밀 분석',
         'orderStatus': '<i class="fas fa-balance-scale" style="color:#9b59b6;"></i> 수주/이탈 분석',
         'config': '<i class="fas fa-cog" style="color:#7f8c8d;"></i> 설정',
         'bp_performance': '📊 2025 성과보고',
-        'bp_targets': '🎯 핵심 목표 사업장',
-        'bp_strategy1': '⚙️ 내부 프로세스 강화',
-        'bp_strategy2': '👥 고객지원 효율화',
-        'bp_threats': '🛡️ 위협 요소 대응',
+        'bp_targets': '🎯 2026 매출목표',
+        'bp_sales': '💼 2026 주요 영업활동 전략',
+        'bp_eff_sales': '⚡ 영업 효율화',
+        'bp_eff_support': '🎧 고객지원파트 효율화',
+        'bp_eff_results': '📝 결과처리파트 효율화',
+        'bp_reservation_flow': '🌐 예약 프로그램 개발 (Data Flow)',
+        'bp_fighting': '💪 2026년 파이팅!',
+        'bp_efficiency': '⚡ 효율화 계획',
         'businessPlan': '📅 2026 사업계획',
         'dataManager': '🛠️ 데이터 관리 센터'
     };
@@ -82,14 +86,15 @@ function initTabScripts(viewName) {
     // 탭이 DOM에 로드된 직후 실행해야 할 작업들
     if (viewName === 'dashboard') {
         if (typeof renderYearFilter === 'function') renderYearFilter();
-        if (typeof recalcAll === 'function' && RAW_ROWS.length > 0) recalcAll();
+        // [FIX] Always recalc (fetch from backend) regardless of RAW_ROWS cache
+        if (typeof recalcAll === 'function') recalcAll();
     }
     else if (viewName === 'periodStatus') {
         if (typeof PeriodStatusModule !== 'undefined') PeriodStatusModule.init();
     }
     else if (viewName === 'retentionView') {
         if (typeof renderYearFilter === 'function') renderYearFilter();
-        if (RAW_ROWS.length > 0 && typeof RetentionModule !== 'undefined') RetentionModule.analyze();
+        if (typeof RetentionModule !== 'undefined') RetentionModule.init();
     }
     else if (viewName === 'detail') {
         if (typeof DetailModule !== 'undefined') DetailModule.init();
@@ -119,5 +124,15 @@ function initTabScripts(viewName) {
     // [NEW] Business Plan Sub-menus or Main
     else if (viewName.startsWith('bp_') || viewName === 'businessPlan') {
         if (typeof BusinessPlanModule !== 'undefined') BusinessPlanModule.init(viewName);
+    }
+}
+
+function toggleSubmenu(id) {
+    const el = document.getElementById(id);
+    if (el) {
+        el.style.display = el.style.display === 'none' ? 'block' : 'none';
+        // Optional: Rotate chevron
+        // const icon = event.currentTarget.querySelector('.fa-chevron-down');
+        // if(icon) icon.style.transform = el.style.display === 'block' ? 'rotate(180deg)' : 'rotate(0deg)';
     }
 }

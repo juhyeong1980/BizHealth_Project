@@ -1,18 +1,26 @@
 # main.py (Version 1.1 - Deployment Ready)
 import os
 from typing import List, Optional, Dict, Any
+from collections import defaultdict
 
 from fastapi import FastAPI, Depends, HTTPException, Query, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.responses import HTMLResponse, FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import create_engine, func, case, desc, distinct
 from sqlalchemy.orm import sessionmaker, Session
 from pydantic import BaseModel
 import shutil
+import sys
+import traceback
 
 # Import models
-from models import Base, Checkup, CompanyMap, CodeMap, Patient, CompanyExclude
+# Import models
+# Import models
+from models import Base, Checkup, CompanyMap, CodeMap, Patient, CompanyExclude, ExamRule
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+FRONTEND_DIR = os.path.join(BASE_DIR, "../frontend")
 
 # Pydantic Models for Settings
 class CompanyMapCreate(BaseModel):
@@ -27,9 +35,12 @@ class CompanyExcludeCreate(BaseModel):
 # ---------------------------------------------------------
 # 1. 데이터베이스 설정
 # ---------------------------------------------------------
-db_path = "healthcare.db"
+# ---------------------------------------------------------
+# 1. 데이터베이스 설정
+# ---------------------------------------------------------
+db_path = os.path.join(BASE_DIR, "healthcare.db")
 if not os.path.exists(db_path):
-    print("⚠️ 경고: healthcare.db 파일이 없습니다. init_db.py를 먼저 실행해주세요!")
+    print(f"⚠️ 경고: {db_path} 파일이 없습니다. init_db.py를 먼저 실행해주세요!")
 
 engine = create_engine(f'sqlite:///{db_path}', connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -55,9 +66,12 @@ app.add_middleware(
 )
 
 # [Modified] Update paths for 'frontend/backend' structure
-app.mount("/js", StaticFiles(directory="../frontend/js"), name="js")
-app.mount("/images", StaticFiles(directory="../frontend/images"), name="images")
-app.mount("/views", StaticFiles(directory="../frontend/views"), name="views")
+if os.path.exists(os.path.join(FRONTEND_DIR, "js")):
+    app.mount("/js", StaticFiles(directory=os.path.join(FRONTEND_DIR, "js")), name="js")
+if os.path.exists(os.path.join(FRONTEND_DIR, "images")):
+    app.mount("/images", StaticFiles(directory=os.path.join(FRONTEND_DIR, "images")), name="images")
+if os.path.exists(os.path.join(FRONTEND_DIR, "views")):
+    app.mount("/views", StaticFiles(directory=os.path.join(FRONTEND_DIR, "views")), name="views")
 
 @app.get("/")
 async def read_root():
@@ -71,72 +85,10 @@ async def read_style():
 # 3. API 엔드포인트
 # ---------------------------------------------------------
 
-@app.get("/admin", response_class=HTMLResponse)
+@app.get("/admin")
 async def admin_page():
-    # 간단한 관리자 UI
-    return """
-    <!DOCTYPE html>
-    <html lang="ko">
-    <head>
-        <meta charset="UTF-8">
-        <title>진헬스 데이터 관리자</title>
-        <style>
-            body { font-family: 'Malgun Gothic', sans-serif; padding: 30px; background: #f0f2f5; }
-            .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); max-width: 800px; margin: 0 auto; }
-            h2 { color: #007bff; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
-            .row { display: flex; gap: 10px; margin-bottom: 15px; background: #f9f9f9; padding: 15px; border-radius: 5px; }
-            input { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 4px; }
-            button { background: #007bff; color: white; border: none; padding: 10px 20px; cursor: pointer; border-radius: 4px; font-weight: bold; }
-            button:hover { background: #0056b3; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th, td { border-bottom: 1px solid #ddd; padding: 12px; text-align: left; }
-            th { background: #f8f9fa; color: #555; }
-        </style>
-    </head>
-    <body>
-        <div class="card">
-            <h2>🏢 사업장명 표준화 관리</h2>
-            <div class="row">
-                <input type="text" id="origin" placeholder="원본 이름 (CSV에 적힌 이름)">
-                <span style="align-self: center;">➡️</span>
-                <input type="text" id="standard" placeholder="통계용 표준 이름">
-                <button onclick="saveRule()">규칙 저장</button>
-            </div>
-            <table>
-                <thead><tr><th>원본 이름</th><th>➡️ 변환될 이름</th><th>관리</th></tr></thead>
-                <tbody id="list"></tbody>
-            </table>
-        </div>
-        <script>
-            const API_URL = ""; 
-            async function loadList() {
-                const res = await fetch(API_URL + "/api/company-map");
-                const data = await res.json();
-                const tbody = document.getElementById("list");
-                tbody.innerHTML = "";
-                data.forEach(item => {
-                    tbody.innerHTML += `<tr><td>${item.original_name}</td><td style="color:blue;font-weight:bold;">${item.standard_name}</td><td><button onclick="deleteRule('${item.original_name}')" style="background:#dc3545;padding:5px 10px;">삭제</button></td></tr>`;
-                });
-            }
-            async function saveRule() {
-                const origin = document.getElementById("origin").value;
-                const standard = document.getElementById("standard").value;
-                if(!origin || !standard) return alert("값을 입력하세요");
-                await fetch(API_URL + "/api/company-map", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ original_name: origin, standard_name: standard }) });
-                alert("저장 완료!");
-                document.getElementById("origin").value = "";
-                loadList();
-            }
-            async function deleteRule(origin) {
-                if(!confirm("삭제하시겠습니까?")) return;
-                await fetch(API_URL + "/api/company-map/" + origin, { method: "DELETE" });
-                loadList();
-            }
-            loadList();
-        </script>
-    </body>
-    </html>
-    """
+    # [Redirect] Legacy admin page is removed. Redirect to main SPA.
+    return RedirectResponse(url="/")
 
 @app.get("/api/years")
 def get_years(db: Session = Depends(get_db)):
@@ -200,6 +152,13 @@ def delete_exclude(company_name: str, db: Session = Depends(get_db)):
     db.commit()
     return {"status": "deleted"}
 
+@app.get("/api/company-list")
+def get_all_companies(db: Session = Depends(get_db)):
+    """DB에 존재하는 모든 회사명(원본) 반환"""
+    companies = db.query(distinct(Checkup.company_name)).all()
+    # Flatten list
+    return sorted([c[0] for c in companies if c[0]])
+
 
 
 @app.get("/api/stats")
@@ -212,11 +171,16 @@ def get_dashboard_stats(
 ):
     company_expr = func.coalesce(CompanyMap.standard_name, Checkup.company_name).label("final_name")
     
+    # [GLOBAL FILTER] Fetch Excludes from DB
+    db_excludes = [r.company_name for r in db.query(CompanyExclude).all()]
+    if exclude_companies: 
+        db_excludes.extend(exclude_companies)
+    
     def apply_filters(query):
         if start_date: query = query.filter(Checkup.checkup_date >= start_date)
         if end_date: query = query.filter(Checkup.checkup_date <= end_date)
         if years: query = query.filter(func.substr(Checkup.checkup_date, 1, 4).in_([str(y) for y in years]))
-        if exclude_companies: query = query.filter(company_expr.not_in(exclude_companies))
+        if db_excludes: query = query.filter(company_expr.not_in(db_excludes))
         return query
 
     # (1) YT
@@ -231,9 +195,17 @@ def get_dashboard_stats(
     YT = {int(r.year): {"rev": r.rev or 0, "cnt": r.cnt or 0} for r in yt_results if r.year}
 
     # (2) MO
+    # Handle YYYYMMDD (len 8 or YYYYMMDD.0) and YYYY-MM-DD (len 10)
+    # Check 5th char. If '-', '.', '/' -> Separated. Else -> YYYYMMDD
+    c5 = func.substr(func.trim(Checkup.checkup_date), 5, 1)
+    month_expr = case(
+        (c5.in_(['-', '.', '/']), func.substr(func.trim(Checkup.checkup_date), 6, 2)),
+        else_=func.substr(func.trim(Checkup.checkup_date), 5, 2)
+    ).label("month")
+
     q_mo = db.query(
         func.substr(Checkup.checkup_date, 1, 4).label("year"),
-        func.substr(Checkup.checkup_date, 6, 2).label("month"),
+        month_expr,
         func.sum(Checkup.total_price).label("rev")
     ).outerjoin(CompanyMap, Checkup.company_name == CompanyMap.original_name)
     q_mo = apply_filters(q_mo)
@@ -282,36 +254,82 @@ def get_company_stats(name: str, years: Optional[List[int]] = Query(None), db: S
 
     results = q.all()
 
+    # Fetch Rules for classification
+    rules = db.query(ExamRule).order_by(ExamRule.priority).all()
+    if not rules:
+        rules = [
+            ExamRule(category_name="종합검진", keywords="종합", priority=1),
+            ExamRule(category_name="기타", keywords="", priority=99)
+        ]
+
     cY = {}
     cM = {} 
     cPkg = {} 
+    cType = {r.category_name: 0 for r in rules}
+    if "기타" not in cType: cType["기타"] = 0
     
     total_rev = 0
     total_cnt = 0
     
     for r in results:
         s_date = str(r.checkup_date).strip()
-        if len(s_date) >= 10:
+        if s_date.endswith('.0'): s_date = s_date[:-2]
+        
+        y, m = 0, 0
+        if len(s_date) == 8 and s_date.isdigit():
             y = int(s_date[:4])
-            m = int(s_date[5:7]) - 1
+            m = int(s_date[4:6]) - 1
+        elif len(s_date) >= 10:
+             if s_date[4] in ['-', '.', '/']:
+                y = int(s_date[:4])
+                m = int(s_date[5:7]) - 1
+             else:
+                y = int(s_date[:4])
+                m = int(s_date[5:7]) - 1
         else: continue
             
         amt = r.total_price or 0
         total_rev += amt
         total_cnt += 1
         
+        # Annual Stats
         if y not in cY: cY[y] = {'r': 0, 'c': 0}
         cY[y]['r'] += amt
         cY[y]['c'] += 1
         
-        if y not in cM: cM[y] = [0]*12
-        if 0 <= m < 12: cM[y][m] += amt
+        # Monthly Stats
+        if y not in cM: cM[y] = {'r': [0]*12, 'c': [0]*12}
+        if 0 <= m < 12: 
+            cM[y]['r'][m] += amt
+            cM[y]['c'][m] += 1
             
+        # Package Stats
         if r.package_code:
             for p in r.package_code.split(','):
                 p = p.strip()
                 if p: cPkg[p] = (cPkg.get(p, 0)) + 1
+
+        # Exam Type Classification
+        c_check_type = (r.checkup_type or "").strip()
+        found_key = "기타"
+        if c_check_type: 
+            for rule in rules:
+                keywords = [k.strip() for k in rule.keywords.split(',') if k.strip()]
+                match = False
+                for k in keywords:
+                    if k in c_check_type:
+                        match = True
+                        break
+                if match:
+                    found_key = rule.category_name
+                    break
+        cType[found_key] += 1
     
+    # Calculate Avg Price per Year
+    for y, d in cY.items():
+        d['avg'] = int(d['r'] / d['c']) if d['c'] > 0 else 0
+
+    # Demographics
     cDemo = {'20': {'M': 0, 'F': 0}, '30': {'M': 0, 'F': 0}, '40': {'M': 0, 'F': 0}, '50': {'M': 0, 'F': 0}, '60': {'M': 0, 'F': 0}}
     
     q_demo = db.query(Checkup.age, Patient.gender, func.count(Checkup.receipt_no))\
@@ -340,14 +358,101 @@ def get_company_stats(name: str, years: Optional[List[int]] = Query(None), db: S
         max_k = max(age_totals, key=age_totals.get)
         max_age_group = max_k + "대" if age_totals[max_k] > 0 else "-"
 
+    avg_price_total = int(total_rev / total_cnt) if total_cnt > 0 else 0
 
     return {
-        "summary": {"rev": total_rev, "cnt": total_cnt, "max_age": max_age_group},
+        "summary": {"rev": total_rev, "cnt": total_cnt, "avg_price": avg_price_total, "max_age": max_age_group},
         "annual": cY,
         "monthly": cM,
         "packages": cPkg,
+        "exam_types": cType,
         "demographics": cDemo
     }
+
+class ExamRuleDTO(BaseModel):
+    category_name: str
+    keywords: str
+    priority: int
+
+@app.get("/api/exam-types")
+def get_exam_types(db: Session = Depends(get_db)):
+    """DB에 존재하는 검진종류(checkup_type)를 쉼표로 분리하여 고유 키워드 목록 반환"""
+    types = db.query(distinct(Checkup.checkup_type)).all()
+    unique_keywords = set()
+    for t in types:
+        if t[0]:
+            # Split by comma and strip
+            parts = [k.strip() for k in t[0].split(',')]
+            for p in parts:
+                if p: unique_keywords.add(p)
+    
+    return sorted(list(unique_keywords))
+
+@app.get("/api/config/exam-rules")
+def get_exam_rules(db: Session = Depends(get_db)):
+    # Ensure table exists
+    Base.metadata.create_all(bind=engine)
+    
+    rules = db.query(ExamRule).order_by(ExamRule.priority).all()
+    if not rules:
+        # Seed Defaults (Modified per user request)
+        defaults = [
+            ExamRule(category_name="종합검진", keywords="종합", priority=1),
+            ExamRule(category_name="기업검진", keywords="기업,채용", priority=2),
+            ExamRule(category_name="특수검진", keywords="특수", priority=3),
+            ExamRule(category_name="공단검진", keywords="공단,일반,생활", priority=4),
+            ExamRule(category_name="기타", keywords="추가,기타", priority=99)
+        ]
+        db.add_all(defaults)
+        db.commit()
+        rules = defaults
+    return rules
+
+@app.post("/api/config/exam-rules")
+def update_exam_rules(rules: List[ExamRuleDTO], db: Session = Depends(get_db)):
+    # Clear existing
+    db.query(ExamRule).delete()
+    # Insert new
+    new_rules = [
+        ExamRule(category_name=r.category_name, keywords=r.keywords, priority=r.priority)
+        for r in rules
+    ]
+    db.add_all(new_rules)
+    db.commit()
+    return {"status": "success"}
+
+class ConfigSyncDTO(BaseModel):
+    maps: List[CompanyMapDTO]
+    excludes: List[str]
+
+@app.post("/api/config/sync")
+def sync_config(dto: ConfigSyncDTO, db: Session = Depends(get_db)):
+    """
+    Company Map/Exclude 일괄 동기화
+    1. Update Maps: Delete all maps and re-insert
+    2. Update Excludes: Delete all excludes and re-insert
+    """
+    try:
+        # 1. Maps
+        db.query(CompanyMap).delete()
+        if dto.maps:
+            new_maps = [
+                CompanyMap(original_name=m.original_name, standard_name=m.standard_name) 
+                for m in dto.maps
+            ]
+            db.add_all(new_maps)
+
+        # 2. Excludes
+        db.query(CompanyExclude).delete()
+        if dto.excludes:
+            new_excl = [CompanyExclude(company_name=e) for e in dto.excludes]
+            db.add_all(new_excl)
+            
+        db.commit()
+        return {"status": "synced"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ---------------------------------------------------------
 # [NEW] Period Analysis Endpoint
@@ -355,17 +460,22 @@ def get_company_stats(name: str, years: Optional[List[int]] = Query(None), db: S
 @app.get("/api/stats/period")
 def get_period_stats(
     start_date: str, 
-    end_date: str, 
+    end_date: str,
+    ignore_exclude: bool = False,
     db: Session = Depends(get_db)
 ):
     """
     특정 기간(start_date ~ end_date) 동안의 통계
-    - total: {count, amount}
-    - byType: 검진 종류별 {count, amount}
-    - byBiz: 매출 상위 기업 리스트
+    - Dynamic Exam Classification based on ExamRule
     """
+    # Create tables if not exist (fail-safe for ExamRule)
+    Base.metadata.create_all(bind=engine)
+
     company_expr = func.coalesce(CompanyMap.standard_name, Checkup.company_name).label("final_name")
     
+    # [GLOBAL FILTER] Fetch Excludes from DB
+    db_excludes = [r.company_name for r in db.query(CompanyExclude).all()]
+
     # 1. Base Query
     q = db.query(
         Checkup.checkup_type,
@@ -375,17 +485,29 @@ def get_period_stats(
      .filter(Checkup.checkup_date >= start_date)\
      .filter(Checkup.checkup_date <= end_date)
      
+    if db_excludes and not ignore_exclude:
+        q = q.filter(company_expr.not_in(db_excludes))
+     
     rows = q.all()
     
+    # Fetch Classification Rules
+    rules = db.query(ExamRule).order_by(ExamRule.priority).all()
+    if not rules:
+        # Fallback in memory if DB empty and not auto-seeded yet
+         rules = [
+            ExamRule(category_name="종합검진", keywords="종합", priority=1),
+            ExamRule(category_name="기타", keywords="", priority=99)
+         ]
+
     total_count = 0
     total_amount = 0
     by_type = {}
     by_biz = {}
     
-    # Predefined priority keys (optional, but good for frontend consistency)
-    PRIORITY_KEYS = ["종합검진", "기업검진", "특수검진", "공단검진", "암검진", "공단구강", "추가영상", "기타"]
-    for k in PRIORITY_KEYS:
-        by_type[k] = {"count": 0, "amount": 0}
+    # Initialize buckets (to ensure order in JSON if frontend relies on keys)
+    for r in rules:
+        by_type[r.category_name] = {"count": 0, "amount": 0}
+    if "기타" not in by_type: by_type["기타"] = {"count": 0, "amount": 0}
         
     for r in rows:
         amt = r.total_price or 0
@@ -393,20 +515,20 @@ def get_period_stats(
         total_amount += amt
         
         # Type Aggregation
-        c_type = (r.checkup_type or "기타").strip()
-        # Simple keywords mapping (Backend Logic)
-        # If the DB already has correct checkup_type, use it. 
-        # Otherwise, we might need logic here. Assuming DB has raw type string.
-        # Let's map it roughly to standard keys or just use the DB string if it matches our standard.
-        # For now, we will use the raw string, but if frontend sent "raw" csv data, it might need normalization.
-        # Let's assume the DB 'checkup_type' column is already reasonably clean or we will group by raw.
-        # Actually, let's try to normalize using simple contains if not in keys.
+        c_type = (r.checkup_type or "").strip()
         
         found_key = "기타"
-        for k in PRIORITY_KEYS:
-            if k in c_type: 
-                found_key = k
-                break
+        if c_type: 
+            for rule in rules:
+                keywords = [k.strip() for k in rule.keywords.split(',') if k.strip()]
+                match = False
+                for k in keywords:
+                    if k in c_type:
+                        match = True
+                        break
+                if match:
+                    found_key = rule.category_name
+                    break
         
         if found_key not in by_type: by_type[found_key] = {"count": 0, "amount": 0}
         by_type[found_key]["count"] += 1
@@ -417,8 +539,8 @@ def get_period_stats(
         if c_name not in by_biz: by_biz[c_name] = {"count": 0, "amount": 0}
         by_biz[c_name]["count"] += 1
         by_biz[c_name]["amount"] += amt
-
-    # Sort Biz by amount
+        
+    # Sort Biz by amount desc
     sorted_biz = dict(sorted(by_biz.items(), key=lambda item: item[1]['amount'], reverse=True)[:50])
 
     return {
@@ -433,65 +555,194 @@ def get_period_stats(
 @app.get("/api/stats/retention")
 def get_retention_stats(years: List[int] = Query(...), db: Session = Depends(get_db)):
     """
-    선택된 연도들에 대한 재방문(Retention/Waterfall) 분석
+    사업장(Company) 유지/이탈 분석 (Company Retention)
+    - Threshold: Analyzed Year Revenue > 5,000,000 KRW
     """
-    str_years = [str(y) for y in sorted(years)]
+    sorted_years = sorted(years)
+    if not sorted_years:
+        return {"waterfall": {}, "details": {}, "years": []}
+
+    # Fetch (Min Year - 1) ~ Max Year to enable calculation for the first selected year
+    min_y = min(sorted_years)
+    max_y = max(sorted_years)
+    target_years = [str(y) for y in range(min_y - 1, max_y + 1)]
+
+    # Query Company Revenue by Year
+    company_expr = func.coalesce(CompanyMap.standard_name, Checkup.company_name).label("name")
     
-    # Query: Patient LifeCode + Year
-    # Group by Patient to get their visit history
     q = db.query(
-        Patient.life_code, 
-        func.substr(Checkup.checkup_date, 1, 4).label('year')
-    ).join(Patient, Checkup.patient_id == Patient.id)\
-     .filter(func.substr(Checkup.checkup_date, 1, 4).in_(str_years))\
-     .distinct()
+        func.substr(Checkup.checkup_date, 1, 4).label("year"),
+        company_expr,
+        func.sum(Checkup.total_price).label("rev")
+    ).outerjoin(CompanyMap, Checkup.company_name == CompanyMap.original_name)\
+     .filter(func.substr(Checkup.checkup_date, 1, 4).in_(target_years))\
+     .group_by("year", company_expr)
      
     rows = q.all()
     
-    user_history = {}
+    # Organize Data: full_data[year][name] = revenue
+    full_data = {} 
     for r in rows:
-        uid = r.life_code
         y = int(r.year)
-        if uid not in user_history: user_history[uid] = set()
-        user_history[uid].add(y)
+        name = r.name or "미지정"
+        rev = int(r.rev or 0)
         
-    waterfall = {y: {"new": 0, "retained": 0, "returned": 0} for y in years}
-    stickiness = [0] * 5 # 1~5+ visits
+        if y not in full_data: full_data[y] = {}
+        full_data[y][name] = rev
+        
+    threshold = 5000000 
     
-    for uid, visited_set in user_history.items():
-        visited = sorted(list(visited_set))
-        first_visit = visited[0]
-        visit_count = len(visited)
+    waterfall = {}
+    details = {} 
+    
+    # Calculate Metrics for Selected Years
+    for y in sorted_years:
+        prev_y = y - 1
         
-        # Stickiness (1 to 5+)
-        idx = min(visit_count, 5) - 1
-        if idx >= 0:
-            stickiness[idx] += 1
+        curr_map = full_data.get(y, {})
+        prev_map = full_data.get(prev_y, {})
+        
+        # Valid Companies (Above Threshold)
+        curr_set = {k for k, v in curr_map.items() if v > threshold}
+        prev_set = {k for k, v in prev_map.items() if v > threshold}
+        
+        maintained = list(curr_set & prev_set)
+        
+        # New & Churn with Amounts
+        new_comps = [{"name": c, "val": curr_map[c]} for c in (curr_set - prev_set)]
+        churn_comps = [{"name": c, "val": prev_map[c]} for c in (prev_set - curr_set)]
+        
+        # Revenue Change for Maintained
+        up = []
+        down = []
+        for c in maintained:
+            curr_r = curr_map.get(c, 0)
+            prev_r = prev_map.get(c, 0)
+            if curr_r > prev_r: up.append({"name": c, "diff": curr_r - prev_r, "val": curr_r})
+            elif curr_r < prev_r: down.append({"name": c, "diff": curr_r - prev_r, "val": curr_r})
             
-        # Waterfall
-        for i, y in enumerate(visited):
-            if y not in waterfall: continue
-            
-            if y == first_visit:
-                waterfall[y]["new"] += 1
-            else:
-                # Retained if visited previous year in the *selected set*? 
-                # Or previous chronological year? 
-                # Usually Retained = Visited in (Y-1). Returned = Visited before (Y-1) but not (Y-1).
-                # But we only have limited years in `years` arg.
-                # If a user visited in 2021 and 2023 (and we selected both), 2023 is Returned?
-                # Let's assume strictly based on history within limit or global?
-                # For accurate stats, we likely need global history, but query is filtered.
-                # Let's simple check: Is (y-1) in visited_set?
-                if (y - 1) in visited_set:
-                    waterfall[y]["retained"] += 1
-                else:
-                    waterfall[y]["returned"] += 1
-                    
+        # Sort Lists
+        new_comps.sort(key=lambda x: x['val'], reverse=True)
+        churn_comps.sort(key=lambda x: x['val'], reverse=True)
+        up.sort(key=lambda x: x['diff'], reverse=True) 
+        down.sort(key=lambda x: x['diff'])             
+        
+        details[y] = {
+            "new": new_comps,
+            "churn": churn_comps,
+            "up": up,
+            "down": down
+        }
+        
+        waterfall[y] = {
+            "new": len(new_comps),
+            "churn": len(churn_comps),
+            "retained": len(maintained)
+        }
+        
     return {
         "waterfall": waterfall,
-        "stickiness": stickiness,
-        "total_users": len(user_history)
+        "details": details,
+        "years": sorted_years,
+        "stickiness": [], # Legacy
+        "total_users": 0  # Legacy
+    }
+
+@app.get("/api/stats/revisit/person")
+def get_revisit_person_stats(db: Session = Depends(get_db)):
+    # 1. Fetch Key Identity Data (LifeCode, ResidentNo) and CheckupDate from all checkups
+    #    (Assuming 1 checkup per year per person is the rule, we extract Year)
+    
+    # We need to join Patient to get life_code/resident_no if not in Checkup (Wait, Checkup has patient_id)
+    # Models: Checkup -> patient_id -> Patient(life_code, resident_no)
+    
+    # Selecting relevant columns
+    results = db.query(
+        Patient.life_code, 
+        Patient.resident_no, 
+        func.substr(Checkup.checkup_date, 1, 4).label("year")
+    ).join(Patient, Checkup.patient_id == Patient.id).distinct().all()
+    
+    # 2. Process in Python
+    person_years = defaultdict(set)
+    for lc, rn, y in results:
+        if not y: continue
+        try:
+            y_int = int(y)
+            pid = f"{lc}_{rn}" # Unique Person ID
+            person_years[pid].add(y_int)
+        except ValueError:
+            # Handle cases where year is not a valid integer
+            continue
+            
+    # 3. Analyze Frequency
+    # Distribution of N-year visitors (How many people visited N distinct years?)
+    # And Biennial patterns
+    
+    freq_dist = defaultdict(int) # {1: count, 2: count, ...}
+    biennial_count = 0
+    total_people = len(person_years)
+    
+    # Define Biennial Logic: 
+    # "Visiting every other year" - e.g. 2021, 2023, 2025...
+    # Strict definition: Gaps of exactly 2 years? Or just "Average gap ~2"?
+    # User said: "격년으로 방문하는 사람" (People visiting biennially).
+    # Simple heuristic: Check if sorted years have gaps of 2 frequently.
+    # OR: people who have visited multiple times but NOT consecutively?
+    # Let's count people who have at least one gap of 2 years and NO gap of 1 year? 
+    # Or just people with pattern 2021, 2023?
+    # Let's try: If 50% or more of their gaps are >= 2 ?
+    # Let's stick to a simpler logic for now: "Users with at least one 2-year gap" or "Users who visited >1 times and never consecutive years".
+    # User Requirement: "2개년도 3개년도... 방문자 수를 체크하고 격년으로 방문하는 사람을 표현"
+    # So "Consecutive Visitors" (Every year) vs "Biennial Visitors" (Every 2 years).
+    
+    for pid, years in person_years.items():
+        count = len(years)
+        freq_dist[count] += 1
+        
+        if count > 1:
+            sorted_years = sorted(list(years))
+            gaps = [sorted_years[i+1] - sorted_years[i] for i in range(len(sorted_years)-1)]
+            
+            # Biennial check: predominantly gaps of 2?
+            # E.g. 2021, 2023 (gap 2). 
+            # 2021, 2022, 2024 (gap 1, 2) -> Mixed.
+            # Strict Biennial: All gaps are >= 2?
+            # This identifies people who SKIP years regularly
+            if all(g >= 2 for g in gaps):
+                biennial_count += 1
+                
+    # 4. Yearly Retention Analysis
+    year_pids = defaultdict(set)
+    for pid, years in person_years.items():
+        for y in years:
+            year_pids[y].add(pid)
+            
+    sorted_years = sorted(year_pids.keys(), reverse=True)
+    yearly_stats = []
+    
+    for y in sorted_years:
+        curr_pids = year_pids[y]
+        prev_pids = year_pids.get(y-1, set())
+        
+        retained = len(curr_pids & prev_pids)
+        total = len(curr_pids)
+        
+        yearly_stats.append({
+            "year": y,
+            "total": total,
+            "retained": retained,
+            "retained_rate": round(retained / total * 100, 1) if total > 0 else 0
+        })
+        
+    # Sort freq keys
+    sorted_freq = dict(sorted(freq_dist.items()))
+    
+    return {
+        "total_people": total_people,
+        "biennial_visitors": biennial_count,
+        "frequency_distribution": sorted_freq,
+        "yearly_retention": yearly_stats
     }
 
 # ---------------------------------------------------------
@@ -500,13 +751,30 @@ def get_retention_stats(years: List[int] = Query(...), db: Session = Depends(get
 
 @app.get("/api/company-list")
 def get_all_companies(db: Session = Depends(get_db)):
-    """DB에 존재하는 모든 회사명(company_name) 목록 반환"""
-    # 단순하게 모든 checkup의 company_name을 distinct로 가져옴
-    # 성능 최적화를 위해 CompanyMap에 있는 것도 고려해야 하나?
-    # 일단 Checkup 테이블 기준.
-    rows = db.query(distinct(Checkup.company_name)).all()
-    # [('Samsung',), ('LG',)] -> ['Samsung', 'LG']
-    return sorted([r[0] or "미지정" for r in rows if r[0]])
+    """DB에 존재하는 모든 회사명과 총 매출 반환 (매출순 정렬)"""
+    try:
+        # Use Standard Name if mapped, else Original Name
+        company_expr = func.coalesce(CompanyMap.standard_name, Checkup.company_name).label("final_name")
+        
+        # Aggregate Revenue
+        q = db.query(
+            company_expr, 
+            func.sum(Checkup.total_price).label("rev")
+        ).outerjoin(CompanyMap, Checkup.company_name == CompanyMap.original_name)\
+         .group_by(company_expr)
+              
+        rows = q.all()
+        
+        # Format & Sort
+        data = [{"name": r[0] or "미지정", "rev": int(r[1] or 0)} for r in rows if r[0]]
+        data.sort(key=lambda x: x['rev'], reverse=True)
+        
+        return data
+
+    except Exception as e:
+        print("CRITICAL ERROR in /api/company-list:", file=sys.stderr)
+        print(traceback.format_exc(), file=sys.stderr)
+        raise HTTPException(status_code=500, detail=str(e))
 
 class ConfigSyncDTO(BaseModel):
     maps: List[CompanyMapDTO]
@@ -539,35 +807,48 @@ def sync_config(dto: ConfigSyncDTO, db: Session = Depends(get_db)):
 # ---------------------------------------------------------
 
 # 4-1. 사업장명 병합 규칙 관리
-@app.get("/api/settings/company-map")
+@app.get("/api/company-map")
 def get_company_maps(db: Session = Depends(get_db)):
-    return db.query(CompanyMap).all()
+    try:
+        rows = db.query(CompanyMap).all()
+        return [{"original_name": m.original_name, "standard_name": m.standard_name} for m in rows]
+    except Exception as e:
+        print("ERROR in /api/company-map:", file=sys.stderr)
+        print(traceback.format_exc(), file=sys.stderr)
+        raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/api/settings/company-map")
+@app.post("/api/company-map")
 def create_company_map(rule: CompanyMapCreate, db: Session = Depends(get_db)):
-    existing = db.query(CompanyMap).filter(CompanyMap.original_name == rule.original_name).first()
-    if existing:
-        existing.standard_name = rule.standard_name
-        existing.memo = rule.memo
-    else:
-        new_rule = CompanyMap(original_name=rule.original_name, standard_name=rule.standard_name, memo=rule.memo)
-        db.add(new_rule)
-    db.commit()
-    return {"message": "규칙이 저장되었습니다"}
+    try:
+        existing = db.query(CompanyMap).filter(CompanyMap.original_name == rule.original_name).first()
+        if existing:
+            existing.standard_name = rule.standard_name
+        else:
+            db.add(CompanyMap(original_name=rule.original_name, standard_name=rule.standard_name))
+        db.commit()
+        return {"status": "ok"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-@app.delete("/api/settings/company-map/{original_name}")
+@app.delete("/api/company-map")
 def delete_company_map(original_name: str, db: Session = Depends(get_db)):
-    rule = db.query(CompanyMap).filter(CompanyMap.original_name == original_name).first()
-    if not rule:
-        raise HTTPException(status_code=404, detail="규칙을 찾을 수 없습니다")
-    db.delete(rule)
-    db.commit()
-    return {"message": "규칙이 삭제되었습니다"}
+    try:
+        db.query(CompanyMap).filter(CompanyMap.original_name == original_name).delete()
+        db.commit()
+        return {"message": "규칙이 삭제되었습니다"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # 4-2. 제외 사업장 관리
-@app.get("/api/settings/exclude")
+@app.get("/api/company-exclude")
 def get_excludes(db: Session = Depends(get_db)):
-    return db.query(CompanyExclude).all()
+    try:
+        rows = db.query(CompanyExclude).all()
+        return [r.company_name for r in rows]
+    except Exception as e:
+        print("ERROR in /api/company-exclude:", file=sys.stderr)
+        print(traceback.format_exc(), file=sys.stderr)
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/settings/exclude")
 def add_exclude(item: CompanyExcludeCreate, db: Session = Depends(get_db)):

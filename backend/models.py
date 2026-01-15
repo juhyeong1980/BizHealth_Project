@@ -95,3 +95,11 @@ class CompanyExclude(Base):
     
     company_name = Column(String, primary_key=True)
     memo = Column(Text)
+
+# 5. [NEW] 검진 종류 분류 규칙
+class ExamRule(Base):
+    __tablename__ = 'tb_exam_rule'
+    
+    category_name = Column(String, primary_key=True)  # 분류명 (예: 종합검진)
+    keywords = Column(Text)                           # 포함될 키워드 (쉼표 구분)
+    priority = Column(Integer, default=0)             # 우선순위 (낮은 숫자 우선)

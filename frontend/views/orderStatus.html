@@ -1,7 +1,8 @@
 <div class="presentation-container">
-    <div class="pres-header">
-        <h2 class="pres-title"><i class="fas fa-balance-scale"></i> 수주 및 이탈 분석</h2>
-        <div class="pres-controls">
+    <!-- Analysis Control Bar -->
+    <div class="action-bar"
+        style="justify-content:flex-end; padding: 15px 30px; background: white; border-bottom: 1px solid #eee;">
+        <div class="pres-controls" style="display:flex; gap:10px; align-items:center;">
             <span style="font-size: 13px; color: #666; font-weight: bold;">📅 분석 연도:</span>
             <div class="local-year-dropdown" style="position:relative; display:inline-block;">
                 <button onclick="toggleLocalYearDropdown()"
@@ -14,98 +15,65 @@
                 </div>
             </div>
             <button onclick="OrderStatusModule.analyze()" class="hd-btn btn-search"
-                style="border-radius: 20px; background:#9b59b6;"><i class="fas fa-sync-alt"></i> 분석</button>
+                style="border-radius: 20px; background:#9b59b6; padding:6px 20px; color:white; font-weight:bold;"><i
+                    class="fas fa-sync-alt"></i> 분석</button>
         </div>
     </div>
 
     <!-- Content Area (Scrollable) -->
-    <div class="pres-body" style="overflow-y: auto; display: flex; flex-direction: column; gap: 40px; padding: 30px;">
+    <div class="pres-body" style="overflow-y: auto; display: flex; flex-direction: column; gap: 20px; padding: 20px;">
 
         <!-- Section 1: Summary KPI -->
         <div class="os-section">
-            <div style="text-align:center; margin-bottom:40px;">
-                <h3 style="font-size:24px; color:#2c3e50;">SUMMARY OVERVIEW</h3>
-                <p style="color:#7f8c8d;">신규 유입 및 이탈, 매출 변동 요약</p>
-            </div>
             <div class="kpi-row" id="os-summary-cards"
-                style="width:100%; max-width:1000px; grid-template-columns: repeat(4, 1fr); gap:20px; margin: 0 auto;">
+                style="width:100%; display:grid; grid-template-columns: repeat(4, 1fr); gap:20px;">
                 <!-- Injected by JS -->
             </div>
         </div>
 
-        <!-- Section 2: New & Churn Analysis (Side by Side) -->
-        <div class="os-section" style="display:grid; grid-template-columns: 1fr 1fr; gap:30px;">
+        <!-- Section 2: Lists 2x2 -->
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
             <!-- New Accounts -->
-            <div class="glass-panel" style="display:flex; flex-direction:column; padding:20px; max-height: 500px;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                    <h3 style="margin:0; color:#27ae60;"><i class="fas fa-leaf"></i> 신규 유입 사업장 (NEW)</h3>
+            <div class="glass-panel"
+                style="display:flex; flex-direction:column; min-height: 300px; max-height: 600px; padding:20px;">
+                <div
+                    style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid #eee; padding-bottom:10px;">
+                    <h3 style="margin:0; font-size:16px; color:#27ae60;"><i class="fas fa-leaf"></i> 신규 유입 사업장</h3>
                 </div>
-                <div class="os-list-wrap" style="flex:1; overflow:auto;">
-                    <table class="os-table">
-                        <thead>
-                            <tr>
-                                <th class="text-left">사업장명</th>
-                                <th style="text-align:right;">매출액</th>
-                            </tr>
-                        </thead>
-                        <tbody id="os-list-new"></tbody>
-                    </table>
-                </div>
+                <div id="os-container-new" class="os-list-wrap" style="flex:1; overflow:auto;"></div>
             </div>
 
             <!-- Churn Accounts -->
-            <div class="glass-panel" style="display:flex; flex-direction:column; padding:20px; max-height: 500px;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                    <h3 style="margin:0; color:#e74c3c;"><i class="fas fa-sign-out-alt"></i> 이탈 사업장 (CHURN)</h3>
+            <div class="glass-panel"
+                style="display:flex; flex-direction:column; min-height: 300px; max-height: 600px; padding:20px;">
+                <div
+                    style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid #eee; padding-bottom:10px;">
+                    <h3 style="margin:0; font-size:16px; color:#e74c3c;"><i class="fas fa-sign-out-alt"></i> 이탈 사업장</h3>
                 </div>
-                <div class="os-list-wrap" style="flex:1; overflow:auto;">
-                    <table class="os-table">
-                        <thead>
-                            <tr>
-                                <th class="text-left">사업장명</th>
-                                <th style="text-align:right;">전년 매출액</th>
-                            </tr>
-                        </thead>
-                        <tbody id="os-list-churn"></tbody>
-                    </table>
-                </div>
+                <div id="os-container-churn" class="os-list-wrap" style="flex:1; overflow:auto;"></div>
             </div>
         </div>
 
-        <!-- Section 3: Revenue Changes (Side by Side) -->
-        <div class="os-section" style="display:grid; grid-template-columns: 1fr 1fr; gap:30px;">
+        <!-- Section 3: Revenue Changes -->
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
             <!-- Increase -->
-            <div class="glass-panel" style="display:flex; flex-direction:column; padding:20px; max-height: 500px;">
-                <h3 style="margin:0 0 15px 0; color:#2980b9;">📈 매출 증가</h3>
-                <div class="os-list-wrap" style="flex:1; overflow:auto;">
-                    <table class="os-table">
-                        <thead>
-                            <tr>
-                                <th class="text-left">사업장명</th>
-                                <th>금액</th>
-                                <th>증가분</th>
-                            </tr>
-                        </thead>
-                        <tbody id="os-list-increase"></tbody>
-                    </table>
+            <div class="glass-panel"
+                style="display:flex; flex-direction:column; min-height: 300px; max-height: 600px; padding:20px;">
+                <div
+                    style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid #eee; padding-bottom:10px;">
+                    <h3 style="margin:0; font-size:16px; color:#2980b9;"><i class="fas fa-arrow-up"></i> 매출 증가</h3>
                 </div>
+                <div id="os-container-increase" class="os-list-wrap" style="flex:1; overflow:auto;"></div>
             </div>
 
             <!-- Decrease -->
-            <div class="glass-panel" style="display:flex; flex-direction:column; padding:20px; max-height: 500px;">
-                <h3 style="margin:0 0 15px 0; color:#f39c12;">📉 매출 감소</h3>
-                <div class="os-list-wrap" style="flex:1; overflow:auto;">
-                    <table class="os-table">
-                        <thead>
-                            <tr>
-                                <th class="text-left">사업장명</th>
-                                <th>금액</th>
-                                <th>감소분</th>
-                            </tr>
-                        </thead>
-                        <tbody id="os-list-decrease"></tbody>
-                    </table>
+            <div class="glass-panel"
+                style="display:flex; flex-direction:column; min-height: 300px; max-height: 600px; padding:20px;">
+                <div
+                    style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid #eee; padding-bottom:10px;">
+                    <h3 style="margin:0; font-size:16px; color:#f39c12;"><i class="fas fa-arrow-down"></i> 매출 감소</h3>
                 </div>
+                <div id="os-container-decrease" class="os-list-wrap" style="flex:1; overflow:auto;"></div>
             </div>
         </div>
 

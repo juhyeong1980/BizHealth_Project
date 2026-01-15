@@ -1,9 +1,12 @@
-
 // --- Order Status Module ---
 
 const OrderStatusModule = (function () {
 
     function init() {
+        // [Default Select All]
+        if (typeof STATE !== 'undefined' && STATE.years && STATE.years.size > 0) {
+            STATE.selectedYears = new Set(STATE.years); // Force Select All
+        }
         renderYearFilter();
     }
 
@@ -16,14 +19,16 @@ const OrderStatusModule = (function () {
 
         const allDiv = document.createElement('div');
         allDiv.style.cssText = itemStyle + "font-weight:bold; color:#3498db; border-bottom: 2px solid #eee; margin-bottom:5px;";
-        allDiv.innerHTML = `<label style="cursor:pointer; display:block;"><input type="checkbox" id="checkAllYears" checked> 전체 선택</label>`;
+        const isAll = (STATE.selectedYears.size === STATE.years.size);
+        allDiv.innerHTML = `<label style="cursor:pointer; display:block;"><input type="checkbox" id="checkAllYears" ${isAll ? 'checked' : ''}> 전체 선택</label>`;
         list.appendChild(allDiv);
 
         if (typeof STATE !== 'undefined' && STATE.years) {
             Array.from(STATE.years).sort((a, b) => b - a).forEach(y => {
+                const checked = STATE.selectedYears.has(y) ? 'checked' : '';
                 const d = document.createElement('div');
                 d.style.cssText = itemStyle;
-                d.innerHTML = `<label style="cursor:pointer; display:block;"><input type="checkbox" class="y-chk" value="${y}" checked> ${y}년</label>`;
+                d.innerHTML = `<label style="cursor:pointer; display:block;"><input type="checkbox" class="y-chk" value="${y}" ${checked}> ${y}년</label>`;
                 list.appendChild(d);
             });
         }
@@ -52,110 +57,145 @@ const OrderStatusModule = (function () {
     }
 
     function analyze() {
-        if (!AGG_DATA || Object.keys(AGG_DATA).length === 0) {
-            // Data might not be loaded yet
-            return;
-        }
+        if (STATE.selectedYears.size < 1) return;
 
-        const selectedYears = Array.from(STATE.selectedYears).sort((a, b) => b - a);
-        if (selectedYears.length < 2) {
-            // Need at least 2 years to compare
-            // update UI to show empty or message?
-            return;
-        }
-        const currYear = selectedYears[0];
-        const prevYear = selectedYears[1];
+        const years = Array.from(STATE.selectedYears).sort((a, b) => b - a);
 
-        const lbl = document.getElementById('os-year-label');
-        if (lbl) lbl.innerText = `기준: ${currYear}년 vs ${prevYear}년`;
+        const containers = {
+            new: document.getElementById('os-container-new'),
+            churn: document.getElementById('os-container-churn'),
+            up: document.getElementById('os-container-increase'),
+            down: document.getElementById('os-container-decrease')
+        };
 
-        // Logic using AGG_DATA
-        // AGG_DATA structure: { "Company Name": { t: total_amt, y: { 2023: amt, 2024: amt }, c: { ... } } }
+        Object.values(containers).forEach(c => { if (c) c.innerHTML = ''; });
 
-        // Note: Exclusions are already handled by Backend for AGG_DATA based on dashboard load params.
-        // But if `dashboard.js` loaded ALL data and handles exclusion locally (which the new backend dashboard endpoint does NOT, it filters at query time),
-        // then AGG_DATA already excludes ignored companies if the dashboard query filtered them.
-        // However, if the dashboard query included everything and we filter locally... 
-        // Current dashboard implementation: `params.append('exclude_companies', ...)` is commented out in my `dashboard.js` plan? 
-        // Wait, did I update dashboard.js? No, I only updated backend and period/retention.
-        // `dashboard.js` L134 said `[REFACTORED] Exclusions are now handled by Backend automatically.`
-        // Correct. So AGG_DATA is already clean. We just iterate it.
+        const params = new URLSearchParams();
+        years.forEach(y => params.append('years', y));
 
-        const result = { new: [], churn: [], increase: [], decrease: [] };
-        const summary = { new: { count: 0, amt: 0 }, churn: { count: 0, amt: 0 }, increase: { count: 0, amt: 0 }, decrease: { count: 0, amt: 0 } };
+        fetch(`${API_BASE_URL}/api/stats/retention?${params}`)
+            .then(res => res.json())
+            .then(data => {
+                let yearlyStats = {};
 
-        Object.entries(AGG_DATA).forEach(([name, data]) => {
-            const curr = data.y[currYear] || 0;
-            const prev = data.y[prevYear] || 0;
+                years.forEach(y => {
+                    const detail = data.details[y];
+                    if (!detail) return;
 
-            const diff = curr - prev;
-            const item = { name: name, curr: curr, prev: prev, diff: diff };
+                    yearlyStats[y] = {
+                        new: detail.new.length,
+                        newAmt: detail.new.reduce((a, b) => a + (b.val || 0), 0),
+                        churn: detail.churn.length,
+                        churnAmt: detail.churn.reduce((a, b) => a + (b.val || 0), 0),
+                        up: detail.up.length,
+                        upAmt: detail.up.reduce((a, b) => a + (b.diff || 0), 0),
+                        down: detail.down.length,
+                        downAmt: detail.down.reduce((a, b) => a + (b.diff || 0), 0)
+                    };
 
-            if (prev === 0 && curr > 0) {
-                result.new.push(item);
-                summary.new.count++; summary.new.amt += curr;
-            } else if (prev > 0 && curr === 0) {
-                result.churn.push(item);
-                summary.churn.count++; summary.churn.amt += prev;
-            } else if (diff > 0 && prev > 0) {
-                result.increase.push(item);
-                summary.increase.count++; summary.increase.amt += diff;
-            } else if (diff < 0 && curr > 0) {
-                result.decrease.push(item);
-                summary.decrease.count++; summary.decrease.amt += diff;
-            }
-        });
+                    renderYearSection(containers.new, y, detail.new, 'val', '매출', '#e74c3c');
+                    renderYearSection(containers.churn, y, detail.churn, 'val', '전년매출', '#2980b9');
+                    renderYearSectionDiff(containers.up, y, detail.up);
+                    renderYearSectionDiff(containers.down, y, detail.down);
+                });
 
-        result.new.sort((a, b) => b.curr - a.curr);
-        result.churn.sort((a, b) => b.prev - a.prev);
-        result.increase.sort((a, b) => b.diff - a.diff);
-        result.decrease.sort((a, b) => a.diff - b.diff);
-
-        renderSummary(summary);
-        renderList('os-list-new', result.new, 'curr');
-        renderList('os-list-churn', result.churn, 'prev');
-        renderListDiff('os-list-increase', result.increase);
-        renderListDiff('os-list-decrease', result.decrease);
+                renderYearlySummary(yearlyStats, years);
+            })
+            .catch(e => console.error(e));
     }
 
-    function renderSummary(s) {
+    function renderYearSection(container, year, list, valKey, valLabel, amtColor = '#333') {
+        if (!container) return;
+
+        const totalAmt = list.reduce((a, b) => a + (b[valKey] || 0), 0);
+
+        const html = `
+            <div style="margin-bottom:20px;">
+                <div style="background:#f8f9fa; padding:12px 15px; border-left:4px solid ${amtColor}; border-radius:4px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
+                    <div style="display:flex; align-items:center; gap:15px;">
+                        <span style="font-size:17px; font-weight:bold; color:#333;">${year}년</span>
+                        <span style="font-size:17px; font-weight:bold; color:#555;">${list.length}개소</span>
+                    </div>
+                    <span style="font-size:17px; font-weight:bold; color:${amtColor};">${totalAmt.toLocaleString()}원</span>
+                </div>
+                <table class="os-table">
+                     ${list.length > 0 ?
+                `<thead><tr><th class="text-left">사업장명</th><th style="text-align:right;">${valLabel}</th></tr></thead><tbody>` +
+                list.map(item => `<tr><td class="text-left" title="${item.name}"><div style="width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${item.name}</div></td><td style="text-align:right; font-weight:bold;">${(item[valKey] || 0).toLocaleString()}</td></tr>`).join('') +
+                `</tbody>`
+                : `<tbody><tr><td colspan="2" style="text-align:center; padding:10px; color:#ccc;">-</td></tr></tbody>`}
+                </table>
+            </div>`;
+
+        container.innerHTML += html;
+    }
+
+    function renderYearSectionDiff(container, year, list) {
+        if (!container) return;
+
+        const totalDiff = list.reduce((a, b) => a + (b.diff || 0), 0);
+        const color = totalDiff > 0 ? '#e74c3c' : (totalDiff < 0 ? '#2980b9' : '#333');
+        const sign = totalDiff > 0 ? '+' : '';
+
+        const html = `
+            <div style="margin-bottom:20px;">
+                <div style="background:#f8f9fa; padding:12px 15px; border-left:4px solid ${color}; border-radius:4px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
+                    <div style="display:flex; align-items:center; gap:15px;">
+                        <span style="font-size:17px; font-weight:bold; color:#333;">${year}년</span>
+                        <span style="font-size:17px; font-weight:bold; color:#555;">${list.length}개소</span>
+                    </div>
+                    <span style="font-size:17px; font-weight:bold; color:${color};">${sign}${totalDiff.toLocaleString()}원</span>
+                </div>
+                <table class="os-table">
+                     ${list.length > 0 ?
+                `<thead><tr><th class="text-left">사업장명</th><th>금액</th><th>증감</th></tr></thead><tbody>` +
+                list.map(item => {
+                    const c = item.diff > 0 ? '#e74c3c' : '#2980b9';
+                    const s = item.diff > 0 ? '+' : '';
+                    return `<tr><td class="text-left" title="${item.name}"><div style="width:100px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${item.name}</div></td><td style="text-align:right; color:#888; font-size:11px;">${(item.val || 0).toLocaleString()}</td><td style="text-align:right; font-weight:bold; color:${c};">${s}${(item.diff || 0).toLocaleString()}</td></tr>`;
+                }).join('') +
+                `</tbody>`
+                : `<tbody><tr><td colspan="3" style="text-align:center; padding:10px; color:#ccc;">-</td></tr></tbody>`}
+                </table>
+            </div>`;
+        container.innerHTML += html;
+    }
+
+    function renderYearlySummary(stats, years) {
         const el = document.getElementById('os-summary-cards');
         if (!el) return;
         const fmt = (n) => n.toLocaleString();
+
+        const buildRows = (key, keyAmt, color, sign = '') => {
+            return years.map(y => {
+                const s = stats[y] || { [key]: 0, [keyAmt]: 0 };
+                return `<div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:6px; padding-bottom:6px; border-bottom:1px solid #f0f0f0;">
+                    <span style="font-weight:bold; color:#555;">${y}년</span>
+                    <div style="text-align:right;">
+                        <span style="display:inline-block; margin-right:8px; font-weight:bold; color:${color};">${s[key]}개</span>
+                        <span style="color:#666; font-size:12px;">${sign}${fmt(s[keyAmt])}</span>
+                    </div>
+                </div>`;
+            }).join('');
+        };
+
         el.innerHTML = `
-        <div class="os-card" style="border-left: 5px solid #27ae60;">
-            <div class="os-card-title"><span>🌱 신규 유입</span></div>
-            <div class="os-card-content"><span class="os-card-count" style="color: #27ae60;">${s.new.count}개소</span><div class="os-card-amt">+${fmt(s.new.amt)}원</div></div>
+        <div class="os-card" style="border-left: 5px solid #27ae60; padding:15px; height:auto; min-height:120px;">
+            <div class="os-card-title" style="margin-bottom:12px; font-size:15px; color:#2c3e50;"><span style="display:flex; align-items:center; gap:5px;"><i class="fas fa-leaf" style="color:#27ae60;"></i> 신규 유입</span></div>
+            <div class="os-card-content" style="display:block;">${buildRows('new', 'newAmt', '#27ae60', '+')}</div>
         </div>
-        <div class="os-card" style="border-left: 5px solid #e74c3c;">
-            <div class="os-card-title"><span>⚠️ 이탈 사업장</span></div>
-            <div class="os-card-content"><span class="os-card-count" style="color: #e74c3c;">${s.churn.count}개소</span><div class="os-card-amt">-${fmt(s.churn.amt)}원</div></div>
+        <div class="os-card" style="border-left: 5px solid #e74c3c; padding:15px; height:auto; min-height:120px;">
+            <div class="os-card-title" style="margin-bottom:12px; font-size:15px; color:#2c3e50;"><span style="display:flex; align-items:center; gap:5px;"><i class="fas fa-sign-out-alt" style="color:#e74c3c;"></i> 이탈 사업장</span></div>
+            <div class="os-card-content" style="display:block;">${buildRows('churn', 'churnAmt', '#e74c3c', '-')}</div>
         </div>
-        <div class="os-card" style="border-left: 5px solid #2980b9;">
-            <div class="os-card-title"><span>📈 매출 증가</span></div>
-            <div class="os-card-content"><span class="os-card-count" style="color: #2980b9;">${s.increase.count}개소</span><div class="os-card-amt">+${fmt(s.increase.amt)}원</div></div>
+        <div class="os-card" style="border-left: 5px solid #2980b9; padding:15px; height:auto; min-height:120px;">
+            <div class="os-card-title" style="margin-bottom:12px; font-size:15px; color:#2c3e50;"><span style="display:flex; align-items:center; gap:5px;"><i class="fas fa-arrow-up" style="color:#2980b9;"></i> 매출 증가</span></div>
+            <div class="os-card-content" style="display:block;">${buildRows('up', 'upAmt', '#2980b9', '+')}</div>
         </div>
-        <div class="os-card" style="border-left: 5px solid #f39c12;">
-            <div class="os-card-title"><span>📉 매출 감소</span></div>
-            <div class="os-card-content"><span class="os-card-count" style="color: #f39c12;">${s.decrease.count}개소</span><div class="os-card-amt">${fmt(s.decrease.amt)}원</div></div>
+        <div class="os-card" style="border-left: 5px solid #f39c12; padding:15px; height:auto; min-height:120px;">
+            <div class="os-card-title" style="margin-bottom:12px; font-size:15px; color:#2c3e50;"><span style="display:flex; align-items:center; gap:5px;"><i class="fas fa-arrow-down" style="color:#f39c12;"></i> 매출 감소</span></div>
+            <div class="os-card-content" style="display:block;">${buildRows('down', 'downAmt', '#f39c12', '')}</div>
         </div>`;
-    }
-
-    function renderList(id, list, valKey) {
-        const tbody = document.getElementById(id);
-        if (!tbody) return;
-        if (!list.length) { tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;color:#ccc;padding:20px;">데이터 없음</td></tr>'; return; }
-        tbody.innerHTML = list.map(item => `<tr><td class="text-left" title="${item.name}"><div style="width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:500;">${item.name}</div></td><td style="font-weight:bold; text-align:right;">${item[valKey].toLocaleString()}</td></tr>`).join('');
-    }
-
-    function renderListDiff(id, list) {
-        const tbody = document.getElementById(id);
-        if (!tbody) return;
-        if (!list.length) { tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#ccc;padding:20px;">데이터 없음</td></tr>'; return; }
-        tbody.innerHTML = list.map(item => {
-            const color = item.diff > 0 ? '#e74c3c' : '#2980b9'; const sign = item.diff > 0 ? '+' : '';
-            return `<tr><td class="text-left" title="${item.name}"><div style="width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:500;">${item.name}</div></td><td style="color:#888; font-size:11px; text-align:right;">${item.curr.toLocaleString()}</td><td style="font-weight:bold; color:${color}; text-align:right;">${sign}${item.diff.toLocaleString()}</td></tr>`;
-        }).join('');
     }
 
     return {
