@@ -76,11 +76,11 @@ if os.path.exists(os.path.join(FRONTEND_DIR, "views")):
 
 @app.get("/")
 async def read_root():
-    return FileResponse("../frontend/index.html")
+    return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
 
 @app.get("/style.css")
 async def read_style():
-    return FileResponse("../frontend/style.css")
+    return FileResponse(os.path.join(FRONTEND_DIR, "style.css"))
 
 # ---------------------------------------------------------
 # 3. API 엔드포인트
