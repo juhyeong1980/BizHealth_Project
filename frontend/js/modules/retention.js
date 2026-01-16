@@ -131,6 +131,7 @@ const RetentionModule = (function () {
                     </div>
                 </div>
             </div>
+        </div>
         `;
 
         container.innerHTML = html;
