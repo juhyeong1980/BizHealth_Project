@@ -15,9 +15,16 @@ const DetailModule = (function () {
             SELECTED_YEARS = new Set(ALL_YEARS); // Default All
             renderYearToggles();
 
-            // 2. Fetch Companies (for global search - returns [{name, rev}, ...])
-            const cRes = await fetch(`${API_BASE_URL}/api/company-list`);
-            ALL_COMPANIES = await cRes.json();
+            // 2. Fetch Companies (Standardized Names with Revenue)
+            const sRes = await fetch(`${API_BASE_URL}/api/stats`);
+            const stats = await sRes.json();
+
+            // Transform CL object {Name: {t: 100...}} to [{name, rev}]
+            ALL_COMPANIES = Object.entries(stats.CL || {}).map(([name, data]) => ({
+                name: name,
+                rev: data.t || 0
+            })).sort((a, b) => b.rev - a.rev); // Sort by revenue desc
+
             // No need to render datalist init
 
         } catch (e) {

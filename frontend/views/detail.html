@@ -6,8 +6,10 @@
             <input type="text" id="dtSearchInput" class="search-input" placeholder="사업장명 입력 (자동완성)"
                 style="width:100%; padding:10px 15px; border-radius:20px; border:1px solid #ddd; background:#f8f9fa;"
                 onclick="DetailModule.showSearchDropdown()" onfocus="DetailModule.showSearchDropdown()"
+                onblur="setTimeout(DetailModule.hideSearchDropdown, 200)"
                 oninput="DetailModule.filterSearchDropdown(this.value)"
                 onkeydown="if(event.key==='Enter') DetailModule.renderDetailView()">
+            <div id="dtSearchDropdown" class="custom-dropdown" style="display:none;"></div>
         </div>
         <button class="btn-refresh" onclick="DetailModule.renderDetailView()"
             style="background:var(--accent); color:white; padding:8px 20px; border-radius:20px; font-weight:bold;">
