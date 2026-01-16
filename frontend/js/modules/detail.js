@@ -346,14 +346,27 @@ const DetailModule = (function () {
                 labels: labels,
                 datasets: [{
                     data: values,
-                    backgroundColor: ['#2ECC71', '#3498DB', '#9B59B6', '#F1C40F', '#E67E22', '#95A5A6']
+                    backgroundColor: ['#3498DB', '#E74C3C', '#2ECC71', '#F1C40F', '#9B59B6', '#95A5A6', '#34495E'],
+                    borderWidth: 2,
+                    hoverOffset: 10
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                cutout: '60%', // Thinner doughnut
+                layout: {
+                    padding: 20
+                },
                 plugins: {
-                    legend: { position: 'right' }
+                    legend: {
+                        position: 'bottom', // Move to bottom to prevent overflow
+                        labels: {
+                            padding: 20,
+                            usePointStyle: true,
+                            font: { size: 11 }
+                        }
+                    }
                 }
             }
         });
