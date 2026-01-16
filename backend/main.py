@@ -15,8 +15,9 @@ import sys
 import traceback
 
 # Import models
-# Import models
-# Import models
+# Fix ModuleNotFoundError on server
+import sys
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from models import Base, Checkup, CompanyMap, CodeMap, Patient, CompanyExclude, ExamRule
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
