@@ -92,6 +92,40 @@ const ConfigModule = (function () {
         return rules;
     }
 
+    // [Fix] Capture current state from DOM for saving
+    function captureCurrentRules() {
+        const merge = {};
+        const exclude = new Set();
+
+        // 1. Capture Merged Groups
+        const groupContainer = document.getElementById('groupContainer');
+        if (groupContainer) {
+            Array.from(groupContainer.children).forEach(card => {
+                const header = card.querySelector('.group-header span');
+                if (!header) return;
+                const stdName = header.innerText.trim();
+                merge[stdName] = [];
+
+                const list = card.querySelector('.group-list');
+                if (list) {
+                    Array.from(list.children).forEach(item => {
+                        merge[stdName].push(item.dataset.val);
+                    });
+                }
+            });
+        }
+
+        // 2. Capture Excludes
+        const excludeList = document.getElementById('excludeList');
+        if (excludeList) {
+            Array.from(excludeList.children).forEach(item => {
+                exclude.add(item.dataset.val);
+            });
+        }
+
+        return { merge, exclude };
+    }
+
     function saveConfigAndRefresh() {
         const rules = captureCurrentRules();
         const examRules = captureExamRules(); // [NEW]
