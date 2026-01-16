@@ -62,24 +62,26 @@
     </div>
 
     <!-- Chart Row 1 -->
-    <div style="display:grid; grid-template-columns: 2fr 1fr; gap:20px; margin-bottom:20px; min-height:400px;">
-        <div class="glass-panel" style="padding:20px; display:flex; flex-direction:column;">
-            <h4 class="sub-title">📉 연도별 실적 추이</h4>
-            <div style="flex:1;">
+    <div style="display:grid; grid-template-columns: 2fr 1fr; gap:20px; margin-bottom:20px; height:320px;">
+        <div class="glass-panel" style="padding:15px; display:flex; flex-direction:column; overflow:hidden;">
+            <h4 class="sub-title" style="margin-bottom:10px;">📉 연도별 실적 추이</h4>
+            <div style="flex:1; position:relative; min-height:0;">
                 <canvas id="dtTrendChart"></canvas>
             </div>
-            <div id="dtAnnualTable" style="margin-top:20px; border-top:1px solid #eee; padding-top:10px;"></div>
+            <div id="dtAnnualTable"
+                style="margin-top:10px; border-top:1px solid #eee; padding-top:5px; max-height:100px; overflow-y:auto;">
+            </div>
         </div>
-        <div class="glass-panel" style="padding:20px; display:flex; flex-direction:column;">
-            <h4 class="sub-title">🧬 검진 유형별 비중</h4>
-            <div style="flex:1;">
+        <div class="glass-panel" style="padding:15px; display:flex; flex-direction:column;">
+            <h4 class="sub-title" style="margin-bottom:10px;">🧬 검진 유형별 비중</h4>
+            <div style="flex:1; position:relative; min-height:0;">
                 <canvas id="dtTypeChart"></canvas>
             </div>
         </div>
     </div>
 
     <!-- Chart Row 2: Monthly Analysis -->
-    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-bottom:20px; min-height:350px;">
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-bottom:20px; height:280px;">
         <div class="glass-panel" style="padding:20px; display:flex; flex-direction:column;">
             <h4 class="sub-title">📊 월별 매출 현황</h4>
             <div style="flex:1;">
