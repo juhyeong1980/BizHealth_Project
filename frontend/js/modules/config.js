@@ -104,10 +104,11 @@ const ConfigModule = (function () {
                 const header = card.querySelector('.group-header span');
                 if (!header) return;
                 const stdName = header.innerText.trim();
-                merge[stdName] = [];
-
                 const list = card.querySelector('.group-list');
                 if (list) {
+                    // [Fix] initialize if not exists (defensive, though createGroupAndAdd mostly solves it)
+                    if (!merge[stdName]) merge[stdName] = [];
+
                     Array.from(list.children).forEach(item => {
                         merge[stdName].push(item.dataset.val);
                     });
@@ -381,6 +382,35 @@ const ConfigModule = (function () {
 
     function createGroupAndAdd(n, initialItem = null) {
         const gC = document.getElementById('groupContainer');
+
+        // [Fix] Check for existing group first
+        let existingGroupList = null;
+        for (let card of gC.children) {
+            const header = card.querySelector('.group-header span');
+            if (header && header.innerText.trim() === n.trim()) {
+                existingGroupList = card.querySelector('.group-list');
+                // Flash effect to show it was added to existing
+                card.style.transition = "background 0.3s";
+                const originalBg = card.style.background;
+                card.style.background = "#fff3cd"; // Highlight
+                setTimeout(() => { card.style.background = originalBg; }, 500);
+                break;
+            }
+        }
+
+        if (existingGroupList) {
+            if (initialItem) {
+                const val = initialItem.dataset.val || initialItem.innerText.trim();
+                const newItem = createItem(val, true);
+                existingGroupList.appendChild(newItem);
+                initialItem.remove(); // Remove from source / previous location
+                initSortableFor(existingGroupList, markPending);
+                markPending();
+            }
+            return;
+        }
+
+        // Create New Group Card
         const c = document.createElement('div');
         c.className = 'group-card';
         c.innerHTML = `
