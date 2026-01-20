@@ -5,5 +5,5 @@ window.APP_CONFIG = {
     // 3. Otherwise (Amplify/External) -> Use Fixed EC2 IP (Port 8080 based on user feedback)
     API_URL: (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
         ? "http://127.0.0.1:8000"
-        : (window.location.hostname === '43.201.66.185' ? window.location.origin : "http://43.201.66.185:8080")
+        : (window.location.hostname === '15.164.233.12' ? window.location.origin : "http://15.164.233.12:8080")
 };

@@ -12,7 +12,7 @@ env/
 *.log
 
 # Project Specific
-backend/healthcare.db
+# backend/healthcare.db
 *.csv
 
 # Javascript (if needed later)
